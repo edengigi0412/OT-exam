@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>職能治療國考冒險群島</title>
-    <!-- 使用可靠的 CDN 資源 -->
+    <!-- 優先載入基礎樣式 -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- 依序載入 React 核心庫 -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- 最後載入編譯器 -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
     <style>
         @keyframes float {
             0% { transform: translateY(0px); }
@@ -17,28 +18,37 @@
             100% { transform: translateY(0px); }
         }
         .island-float { animation: float 4s ease-in-out infinite; }
-        body { background-color: #0f172a; margin: 0; overflow-x: hidden; color: white; min-height: 100vh; font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; }
-        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        body { 
+            background-color: #0f172a; 
+            margin: 0; 
+            overflow-x: hidden; 
+            color: white; 
+            min-height: 100vh; 
+            font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; 
+        }
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        [data-lucide] { display: inline-block; vertical-align: middle; }
         .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
+        .option-btn { transition: all 0.2s; }
+        .option-btn:active { transform: scale(0.98); }
+        .option-btn:hover { background-color: #334155; border-color: #22d3ee; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useMemo } = React;
 
-        // 根據文件定義的八大島嶼
+        // --- 靜態資料定義 ---
         const ISLANDS = [
             { id: 'anatomy', name: '解剖學島', color: 'bg-red-500', icon: 'Stethoscope', landmark: '巨大脊椎山脈', theme: 'text-white', detail: '結構、層次、身體構造。地形包含肌肉層與骨骼山。', effect: '地面半透明，能看到血管流動' },
             { id: 'physiology', name: '生理學島', color: 'bg-purple-600', icon: 'Activity', landmark: '跳動的心臟火山', theme: 'text-white', detail: '動態運作、系統循環。地形有流動河流與脈動地面。', effect: '神經閃電樹，島嶼會隨脈搏起伏' },
             { id: 'theory', name: '職能治療理論島', color: 'bg-[#F5F5DC]', icon: 'BookOpen', landmark: '漂浮模型神殿', theme: 'text-emerald-900', detail: 'MOHO、PEO、Allen。幾何拼圖式浮島。', effect: '島嶼會隨理論框架重新排列' },
-            { id: 'pediatrics', name: '小兒職能治療島', color: 'bg-yellow-400', icon: 'Baby', landmark: '巨型溜滑梯山', theme: 'text-yellow-900', detail: '發展、遊戲、感覺統合。遊樂園與糖果地形。', effect: '感覺統合迷宮，重力會產生變化' },
+            { id: 'pediatrics', name: '小兒職能治療島', color: 'bg-yellow-400', icon: 'Baby', landmark: '溜滑梯山', theme: 'text-yellow-900', detail: '發展、遊戲、感覺統合。遊樂園與糖果地形。', effect: '感覺統合迷宮，重力會產生變化' },
             { id: 'psychosocial', name: '身心障礙島', color: 'bg-indigo-900', icon: 'Moon', landmark: '色彩情緒湖', theme: 'text-indigo-100', detail: '情緒、認知、內在世界。半明半暗的光影對比。', effect: '天氣隨情緒值改變，充滿迷霧森林' },
             { id: 'physical', name: '生理障礙島', color: 'bg-orange-500', icon: 'Settings', landmark: '復健訓練場', theme: 'text-white', detail: '復健、功能恢復。破碎地面與重建區域。', effect: '建築會動態修復重建，設有義肢工坊' },
             { id: 'assistive', name: '輔具學島', color: 'bg-slate-400', icon: 'Cpu', landmark: '機械塔', theme: 'text-slate-900', detail: '工具、設計、科技輔助。科技城市與機械島。', effect: '自動變形建築，輪椅軌道城市' },
@@ -46,59 +56,90 @@
         ];
 
         const BADGES = [
-            { id: 'adhd', name: 'ADHD', category: '小兒', color: 'bg-yellow-400', icon: 'Zap', desc: '中心小光點，外圍有跳動線條' },
-            { id: 'asd', name: '自閉症', category: '小兒', color: 'bg-blue-400', icon: 'Puzzle', desc: '彩色拼圖，圓圈包圍的小星球' },
-            { id: 'pompe', name: '龐貝氏症', category: '小兒', color: 'bg-orange-600', icon: 'Dna', desc: '肌肉纖維與小能量顆粒' },
-            { id: 'cp', name: '腦性麻痺', category: '小兒', color: 'bg-green-500', icon: 'Accessibility', desc: '簡化人物與支撐線條' },
-            { id: 'parkinson', name: '帕金森氏症', category: '生理', color: 'bg-purple-800', icon: 'Waves', desc: '手的輪廓與震動線條' },
-            { id: 'stroke', name: '腦中風', category: '生理', color: 'bg-red-700', icon: 'ZapOff', desc: '大腦與一條中斷的血管' },
-            { id: 'burn', name: '燒燙傷', category: '生理', color: 'bg-orange-700', icon: 'Flame', desc: '火焰與新生的皮膚(嫩葉)' },
-            { id: 'angelman', name: '天使症候群', category: '精神', color: 'bg-sky-300', icon: 'Smile', desc: '微笑臉與小光環' },
-            { id: 'dementia', name: '失智症', category: '精神', color: 'bg-slate-300', icon: 'CloudFog', desc: '大腦逐漸變成碎片消散' },
-            { id: 'schizo', name: '思覺失調症', category: '精神', color: 'bg-indigo-950', icon: 'Layers', desc: '臉部輪廓重疊或破碎鏡面' }
+            { id: 'adhd', name: 'ADHD', category: '小兒', color: 'bg-yellow-400', icon: 'Zap', desc: '專注力與活動量調整' },
+            { id: 'asd', name: '自閉症', category: '小兒', color: 'bg-blue-400', icon: 'Puzzle', desc: '社交互動與重複性行為' },
+            { id: 'pompe', name: '龐貝氏症', category: '小兒', color: 'bg-orange-600', icon: 'Dna', desc: '罕見遺傳與肌肉功能' },
+            { id: 'cp', name: '腦性麻痺', category: '小兒', color: 'bg-green-500', icon: 'Accessibility', desc: '動作發展與張力控制' },
+            { id: 'parkinson', name: '帕金森氏症', category: '生理', color: 'bg-purple-800', icon: 'Waves', desc: '多巴胺不足與動作障礙' },
+            { id: 'stroke', name: '腦中風', category: '生理', color: 'bg-red-700', icon: 'ZapOff', desc: '血管意外與單側偏癱' },
+            { id: 'burn', name: '燒燙傷', category: '生理', color: 'bg-orange-700', icon: 'Flame', desc: '皮膚損傷與關節合約' },
+            { id: 'angelman', name: '天使症候群', category: '精神', color: 'bg-sky-300', icon: 'Smile', desc: '遺傳缺陷與愉悅表情' },
+            { id: 'dementia', name: '失智症', category: '精神', color: 'bg-slate-300', icon: 'CloudFog', desc: '記憶衰退與定向感喪失' },
+            { id: 'schizo', name: '思覺失調症', category: '精神', color: 'bg-indigo-950', icon: 'Layers', desc: '思考障礙與幻覺知覺' }
         ];
 
-        /**
-         * 優化過的 LucideIcon 組件
-         * 使用 useRef 鎖定 DOM 節點，並確保在 React 生命週期內安全掛載
-         */
-        const LucideIcon = ({ name, size = 24, className = "" }) => {
-            const iconRef = useRef(null);
-            
-            useEffect(() => {
-                // 檢查全域的 lucide 庫是否已載入
-                if (window.lucide && iconRef.current) {
-                    try {
-                        window.lucide.createIcons({
-                            attrs: {
-                                stroke: "currentColor",
-                                "stroke-width": 2,
-                                "stroke-linecap": "round",
-                                "stroke-linejoin": "round"
-                            }
-                        });
-                    } catch (e) {
-                        console.error("Lucide rendering error:", e);
-                    }
-                }
-            }, [name, size]);
+        const MOCK_QUESTIONS = [
+            { id: 1, text: "下列關於 PEO 模式的敘述，何者正確？", options: ["P 代表 Person (人)", "E 代表 Effort (努力)", "O 代表 Organization (組織)", "核心是疾病診斷"], answer: 0 },
+            { id: 2, text: "Allen 認知層級中，哪一層級開始能進行有目的的動作？", options: ["層級 1", "層級 2", "層級 3", "層級 4"], answer: 2 },
+            { id: 3, text: "關於副木(Splint)的製作原理，下列何者為非？", options: ["三點壓力原則", "分散壓力", "應避開骨突處", "越緊越好"], answer: 3 },
+            { id: 4, text: "職能治療實務架構 (OTPF) 中，下列何者屬於『個案因素』？", options: ["生活習慣", "身體功能", "文化情境", "角色期望"], answer: 1 }
+        ];
+
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const icons = {
+                Stethoscope: <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3" />,
+                Activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
+                BookOpen: <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />,
+                Baby: <path d="M9 12h.01M15 12h.01M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 5 6.3M12 21a9 9 0 0 1 0-18" />,
+                Moon: <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />,
+                Settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 0-2-2h-.44a2 2 0 0 0-2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 0-2-2" />,
+                Cpu: <g><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M9 9h6v6H9zM15 2v2M9 2v2M15 20v2M9 20v2M20 15h2M20 9h2M2 15h2M2 9h2" /></g>,
+                Compass: <g><circle cx="12" cy="12" r="10" /><path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z" /></g>,
+                Heart: <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />,
+                Trophy: <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2Z" />,
+                Award: <g><circle cx="12" cy="8" r="6" /><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" /></g>,
+                Zap: <path d="M13 2 L3 14 L12 14 L11 22 L21 10 L12 10 Z" />,
+                Puzzle: <path d="M11.5 5.5a1.5 1.5 0 1 1 3 0c0 .4-.1.7-.3 1H18a2 2 0 0 1 2 2v3.8c.3-.2.6-.3 1-.3a1.5 1.5 0 1 1 0 3c-.4 0-.7-.1-1-.3V18a2 2 0 0 1-2 2h-3.8c.2-.3.3-.6.3-1a1.5 1.5 0 1 0-3 0c0 .4.1.7.3 1H8a2 2 0 0 1-2-2v-3.8c-.3.2-.6.3-1 .3a1.5 1.5 0 1 1 0-3c.4 0 .7.1 1 .3V8a2 2 0 0 1 2-2h3.8c-.2-.3-.3-.6-.3-1Z" />,
+                ArrowLeft: <path d="m12 19-7-7 7-7M5 12h14" />,
+                PlayCircle: <g><circle cx="12" cy="12" r="10" /><path d="m10 8 6 4-6 4V8z" /></g>,
+                Timer: <g><line x1="10" x2="14" y1="2" y2="2" /><path d="M12 14v-4M4 13a8 8 0 0 1 8-7 8 8 0 1 1-5.3 14L4 17.6" /></g>,
+                Accessibility: <path d="M12 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM2 9l3 1.5L6 14l1.5-1.5L9 9ZM22 9l-3 1.5L18 14l-1.5-1.5L15 9ZM12 7v8l-3 5M12 15l3 5" />,
+                Dna: <path d="m8 8 8 8M12 12h.01M19 6l-4 4M10 14l-4 4M7 22c-3.3 0-6-2.7-6-6 0-3.3 2.7-6 6-6s6 2.7 6 6-2.7 6-6 6ZM17 2c3.3 0 6 2.7 6 6 0 3.3-2.7 6-6 6s-6-2.7-6-6 2.7-6 6-6Z" />,
+                Waves: <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />,
+                ZapOff: <path d="M12.41 6.75 13 2l-2.43 2.92M18.57 12.91 21 10h-5.34M8 8l-5 6h9l-1 8 5-6M12 12l1 1" />,
+                Flame: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.292 1.3-3.143l3.2 3.143Z" />,
+                Smile: <g><circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" /></g>,
+                CloudFog: <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242M16 13H7M14 17H9M11 21h2" />,
+                Layers: <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.26 6.11a2 2 0 0 0 0 3.78l8.91 3.93a2 2 0 0 0 1.66 0l8.91-3.93a2 2 0 0 0 0-3.78ZM2 17.62l10 4.41 10-4.41M2 12.62l10 4.41 10-4.41" />
+            };
 
             return (
-                <span ref={iconRef} className={`inline-flex items-center justify-center ${className}`}>
-                    <i 
-                        data-lucide={name.toLowerCase()} 
-                        style={{ width: size, height: size }}
-                    ></i>
-                </span>
+                <svg 
+                    viewBox="0 0 24 24" 
+                    width={size} 
+                    height={size} 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    className={className}
+                >
+                    {icons[name] || <circle cx="12" cy="12" r="10" />}
+                </svg>
             );
         };
 
         function App() {
-            const [view, setView] = useState('map');
+            const [view, setView] = useState('map'); 
             const [score, setScore] = useState(0);
             const [hearts, setHearts] = useState(5);
             const [selectedIsland, setSelectedIsland] = useState(null);
             const [unlockedBadges, setUnlockedBadges] = useState([]);
+            
+            const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+            const [quizScore, setQuizScore] = useState(0);
+            const [quizTime, setQuizTime] = useState(600);
+
+            useEffect(() => {
+                let timer;
+                if (view === 'quiz' && quizTime > 0) {
+                    timer = setInterval(() => setQuizTime(prev => prev - 1), 1000);
+                } else if (quizTime === 0 && view === 'quiz') {
+                    handleFinishQuiz(quizScore);
+                }
+                return () => clearInterval(timer);
+            }, [view, quizTime, quizScore]);
 
             const handleIslandClick = (island) => {
                 if (hearts <= 0) {
@@ -111,63 +152,85 @@
 
             const handleStartQuiz = () => {
                 setHearts(h => Math.max(0, h - 1));
-                const earnedPoints = 25;
-                const newScore = score + earnedPoints;
-                setScore(newScore);
+                setQuizTime(600);
+                setQuizScore(0);
+                setCurrentQuestionIndex(0);
+                setView('quiz');
+            };
 
-                const badgeCount = Math.floor(newScore / 100);
-                if (badgeCount > unlockedBadges.length && badgeCount <= BADGES.length) {
-                    setUnlockedBadges(BADGES.slice(0, badgeCount));
-                }
+            const handleAnswer = (optionIndex) => {
+                const isCorrect = optionIndex === MOCK_QUESTIONS[currentQuestionIndex].answer;
+                const nextScore = isCorrect ? quizScore + 1 : quizScore;
                 
-                alert(`開始練習！(消耗 1 點生命)\n本次練習獲得 ${earnedPoints} 積分。\n目前總積分：${newScore}`);
+                if (isCorrect) setQuizScore(nextScore);
+
+                if (currentQuestionIndex < MOCK_QUESTIONS.length - 1) {
+                    setCurrentQuestionIndex(prev => prev + 1);
+                } else {
+                    handleFinishQuiz(nextScore);
+                }
+            };
+
+            const handleFinishQuiz = (finalQuizScore) => {
+                const earnedPoints = finalQuizScore * 10;
+                const newTotalScore = score + earnedPoints;
+                setScore(newTotalScore);
+
+                const badgeCount = Math.floor(newTotalScore / 100);
+                if (badgeCount > unlockedBadges.length && badgeCount <= BADGES.length) {
+                    const newBadges = BADGES.slice(0, badgeCount);
+                    setUnlockedBadges(newBadges);
+                }
+
+                alert(`測驗結束！\n答對題數：${finalQuizScore}\n獲得積分：${earnedPoints}\n目前總積分：${newTotalScore}`);
                 setView('map');
             };
 
+            const formatTime = (seconds) => {
+                const m = Math.floor(seconds / 60);
+                const s = seconds % 60;
+                return `${m}:${s < 10 ? '0' : ''}${s}`;
+            };
+
             return (
-                <div className="min-h-screen flex flex-col bg-[#0f172a]">
+                <div className="min-h-screen flex flex-col bg-[#0f172a] text-white">
                     <header className="p-4 bg-slate-800/90 backdrop-blur-md flex justify-between items-center sticky top-0 z-50 border-b border-slate-700 shadow-xl">
-                        <div className="flex items-center space-x-6">
-                            <div className="flex space-x-1.5 bg-slate-900 px-4 py-2 rounded-full border border-slate-700 shadow-inner">
+                        <div className="flex items-center space-x-3 md:space-x-6">
+                            <div className="flex space-x-1 bg-slate-900 px-3 py-1.5 rounded-full border border-slate-700">
                                 {[...Array(5)].map((_, i) => (
-                                    <LucideIcon key={`heart-${i}`} name="Heart" size={20} className={i < hearts ? "text-red-500 fill-red-500" : "text-slate-700"} />
+                                    <Icon key={`h-${i}`} name="Heart" size={18} className={i < hearts ? "text-red-500 fill-red-500" : "text-slate-700"} />
                                 ))}
                             </div>
-                            <div className="bg-slate-900 px-4 py-2 rounded-full border border-slate-700 text-yellow-400 flex items-center space-x-2 shadow-inner">
-                                <LucideIcon name="Trophy" size={20} />
-                                <span className="font-black text-lg">{score}</span>
+                            <div className="bg-slate-900 px-3 py-1.5 rounded-full border border-slate-700 text-yellow-400 flex items-center space-x-2">
+                                <Icon name="Trophy" size={18} />
+                                <span className="font-bold">{score}</span>
                             </div>
                         </div>
-                        <button 
-                            onClick={() => setView('badges')} 
-                            className="flex items-center space-x-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-full transition-all border border-slate-500 active:scale-95"
-                        >
-                            <LucideIcon name="Award" className="text-cyan-400" />
-                            <span className="font-bold text-sm">勳章館 ({unlockedBadges.length})</span>
-                        </button>
+                        {view === 'map' && (
+                            <button onClick={() => setView('badges')} className="flex items-center space-x-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-full transition-all text-sm font-bold border border-slate-500">
+                                <Icon name="Award" size={18} className="text-cyan-400" />
+                                <span>勳章館 ({unlockedBadges.length})</span>
+                            </button>
+                        )}
                     </header>
 
                     <main className="flex-1 p-6 md:p-12 flex flex-col items-center">
-                        {/* 加入明確的 key 以防止 React 在切換 View 時發生 DOM 衝突 */}
                         {view === 'map' && (
-                            <div key="view-map" className="w-full max-w-6xl fade-in">
-                                <div className="text-center mb-12">
-                                    <h1 className="text-5xl md:text-6xl font-black mb-4 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 bg-clip-text text-transparent italic tracking-tighter">
-                                        OT EXAM ADVENTURE
-                                    </h1>
-                                    <p className="text-slate-400 text-lg font-medium">請選擇修煉島嶼進行 40 題國考練習</p>
-                                </div>
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+                            <div className="w-full max-w-6xl fade-in text-center">
+                                <h1 className="text-4xl md:text-6xl font-black mb-4 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 bg-clip-text text-transparent italic tracking-tighter uppercase">
+                                    OT Exam Adventure
+                                </h1>
+                                <p className="text-slate-400 mb-12 font-medium">點擊島嶼開始修煉職能治療國考知識</p>
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
                                     {ISLANDS.map(island => (
                                         <button 
-                                            key={`island-${island.id}`}
+                                            key={island.id}
                                             onClick={() => handleIslandClick(island)}
-                                            className={`${island.color} aspect-square rounded-[2.5rem] p-8 flex flex-col items-center justify-center shadow-2xl hover:scale-105 transition-all island-float group relative overflow-hidden`}
+                                            className={`${island.color} aspect-square rounded-[2rem] p-6 flex flex-col items-center justify-center shadow-2xl hover:scale-105 transition-all island-float group`}
                                         >
-                                            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                            <LucideIcon name={island.icon} size={64} className={`mb-4 ${island.theme} drop-shadow-lg group-hover:rotate-12 transition-transform`} />
-                                            <span className={`text-2xl font-black ${island.theme} mb-1`}>{island.name}</span>
-                                            <span className={`text-xs font-bold opacity-80 px-3 py-1 rounded-full bg-black/20 ${island.theme}`}>{island.landmark}</span>
+                                            <Icon name={island.icon} size={48} className={`mb-3 ${island.theme} drop-shadow-lg group-hover:rotate-12 transition-transform`} />
+                                            <span className={`text-xl font-bold ${island.theme}`}>{island.name}</span>
+                                            <span className={`text-[10px] mt-2 opacity-70 font-bold px-2 py-0.5 rounded-full bg-black/20 ${island.theme}`}>{island.landmark}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -175,38 +238,67 @@
                         )}
 
                         {view === 'mode-select' && selectedIsland && (
-                            <div key="view-mode-select" className="w-full max-w-2xl fade-in">
-                                <button onClick={() => setView('map')} className="mb-8 flex items-center text-slate-400 hover:text-white transition-colors font-bold text-lg">
-                                    <LucideIcon name="ArrowLeft" className="mr-2" /> <span>返回冒險地圖</span>
+                            <div className="w-full max-w-2xl fade-in">
+                                <button onClick={() => setView('map')} className="mb-6 flex items-center text-slate-400 hover:text-white font-bold transition-colors">
+                                    <Icon name="ArrowLeft" size={20} className="mr-2" /> <span>返回冒險地圖</span>
                                 </button>
-                                <div className={`${selectedIsland.color} p-12 rounded-[3rem] mb-10 text-center shadow-2xl relative overflow-hidden`}>
-                                    <LucideIcon name={selectedIsland.icon} size={100} className={`mx-auto mb-6 ${selectedIsland.theme} drop-shadow-2xl`} />
-                                    <h2 className={`text-4xl font-black mb-4 ${selectedIsland.theme}`}>{selectedIsland.name}</h2>
-                                    <p className={`text-lg font-medium leading-relaxed max-w-md mx-auto ${selectedIsland.theme} opacity-90`}>
-                                        {selectedIsland.detail}
-                                    </p>
-                                    <div className={`mt-4 text-sm font-bold p-2 inline-block rounded-lg bg-black/10 ${selectedIsland.theme}`}>
-                                        特殊效果：{selectedIsland.effect}
+                                <div className={`${selectedIsland.color} p-10 rounded-[2.5rem] mb-8 text-center shadow-2xl relative overflow-hidden`}>
+                                    <Icon name={selectedIsland.icon} size={80} className={`mx-auto mb-4 ${selectedIsland.theme}`} />
+                                    <h2 className={`text-3xl font-black mb-2 ${selectedIsland.theme}`}>{selectedIsland.name}</h2>
+                                    <p className={`opacity-90 max-w-md mx-auto ${selectedIsland.theme}`}>{selectedIsland.detail}</p>
+                                    <div className={`mt-4 text-xs font-bold inline-block px-4 py-1.5 rounded-full bg-black/10 ${selectedIsland.theme}`}>
+                                        特殊環境：{selectedIsland.effect}
                                     </div>
                                 </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid gap-4">
                                     {[
-                                        { id: 'random', n: '隨機出題模式', d: '系統隨機抽取 40 題' },
-                                        { id: 'easy', n: '簡單模式', d: '答對率 ≥ 50% 題目' },
-                                        { id: 'hard', n: '困難模式', d: '答對率 < 50% 題目' },
-                                        { id: 'wrong', n: '錯題統整模式', d: '複習先前答錯的內容' }
+                                        { id: 'r', n: '隨機 40 題模式', d: '系統從題庫中隨機抽選題目進行練習' },
+                                        { id: 'e', n: '高頻考點模式', d: '針對國考出現頻率最高的題目進行強化' }
                                     ].map(mode => (
-                                        <button 
-                                            key={`mode-${mode.id}`} 
-                                            onClick={handleStartQuiz} 
-                                            className="p-6 bg-slate-800 border-2 border-slate-700 rounded-3xl hover:bg-slate-700 hover:border-cyan-500 transition-all text-left group"
-                                        >
-                                            <div className="flex justify-between items-center mb-2">
-                                                <span className="font-black text-xl group-hover:text-cyan-400">{mode.n}</span>
-                                                <LucideIcon name="PlayCircle" size={24} className="text-slate-600 group-hover:text-cyan-400" />
+                                        <button key={mode.id} onClick={handleStartQuiz} className="p-6 bg-slate-800 border-2 border-slate-700 rounded-3xl flex justify-between items-center hover:border-cyan-500 hover:bg-slate-700 transition-all text-left group">
+                                            <div>
+                                                <div className="font-bold text-xl group-hover:text-cyan-400 transition-colors">{mode.n}</div>
+                                                <div className="text-sm text-slate-400 mt-1">{mode.d}</div>
                                             </div>
-                                            <p className="text-slate-400 text-sm group-hover:text-slate-300">{mode.d}</p>
+                                            <Icon name="PlayCircle" className="text-slate-600 group-hover:text-cyan-400" size={32} />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {view === 'quiz' && (
+                            <div className="w-full max-w-3xl fade-in">
+                                <div className="flex justify-between items-center mb-6 bg-slate-800 p-5 rounded-3xl border border-slate-700 shadow-xl">
+                                    <div className="flex items-center space-x-3 text-cyan-400 font-mono font-bold text-xl">
+                                        <Icon name="Timer" size={24} />
+                                        <span>{formatTime(quizTime)}</span>
+                                    </div>
+                                    <div className="font-bold text-slate-400 text-sm tracking-widest uppercase">
+                                        Question {currentQuestionIndex + 1} / {MOCK_QUESTIONS.length}
+                                    </div>
+                                    <div className="text-yellow-400 font-black text-xl">
+                                        PTS: {quizScore * 10}
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-800 p-10 rounded-[2.5rem] border border-slate-700 shadow-2xl mb-8 min-h-[240px] flex items-center justify-center text-center">
+                                    <h3 className="text-2xl md:text-3xl font-bold leading-snug">
+                                        {MOCK_QUESTIONS[currentQuestionIndex].text}
+                                    </h3>
+                                </div>
+
+                                <div className="grid gap-4">
+                                    {MOCK_QUESTIONS[currentQuestionIndex].options.map((opt, i) => (
+                                        <button 
+                                            key={i} 
+                                            onClick={() => handleAnswer(i)}
+                                            className="option-btn p-6 bg-slate-800 border-2 border-slate-700 rounded-2xl text-left font-bold flex items-center group"
+                                        >
+                                            <span className="w-10 h-10 rounded-xl bg-slate-700 group-hover:bg-cyan-500 group-hover:text-black transition-colors flex items-center justify-center mr-5 text-lg font-black border border-slate-600">
+                                                {String.fromCharCode(65 + i)}
+                                            </span>
+                                            <span className="text-lg">{opt}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -214,63 +306,69 @@
                         )}
 
                         {view === 'badges' && (
-                            <div key="view-badges" className="w-full max-w-5xl fade-in">
-                                <div className="flex justify-between items-center mb-12">
-                                    <button onClick={() => setView('map')} className="flex items-center text-slate-400 hover:text-white font-bold text-lg bg-slate-800 px-6 py-2 rounded-full border border-slate-700">
-                                        <LucideIcon name="ArrowLeft" className="mr-2" /> <span>返回</span>
+                            <div className="w-full max-w-5xl fade-in">
+                                <div className="flex justify-between items-end mb-10 border-b border-slate-800 pb-6">
+                                    <button onClick={() => setView('map')} className="flex items-center text-slate-400 hover:text-white font-bold bg-slate-800 px-6 py-2.5 rounded-full border border-slate-700 transition-colors">
+                                        <Icon name="ArrowLeft" className="mr-2" size={20} /> <span>返回冒險</span>
                                     </button>
-                                    <h2 className="text-4xl font-black text-yellow-500 tracking-tight italic">COLLECTION HALL</h2>
-                                    <div className="text-slate-500 font-bold">進度: {unlockedBadges.length}/10</div>
+                                    <div className="text-right">
+                                        <h2 className="text-4xl font-black text-yellow-500 italic uppercase tracking-tighter">Collection Hall</h2>
+                                        <p className="text-slate-500 text-xs font-bold mt-1">解鎖進度: {unlockedBadges.length} / {BADGES.length}</p>
+                                    </div>
                                 </div>
                                 
                                 <div className="badge-grid">
                                     {BADGES.map(b => {
                                         const isUnlocked = unlockedBadges.some(ub => ub.id === b.id);
                                         return (
-                                            <div key={`badge-${b.id}`} className={`p-6 rounded-[2rem] border-2 flex flex-col items-center transition-all relative group ${
-                                                isUnlocked ? `${b.color} border-transparent shadow-xl scale-100` : 'bg-slate-800/50 border-slate-700 opacity-30 grayscale scale-95'
+                                            <div key={b.id} className={`p-6 rounded-[2.5rem] border-2 flex flex-col items-center transition-all relative group ${
+                                                isUnlocked ? `${b.color} border-transparent shadow-2xl scale-100` : 'bg-slate-800/50 border-slate-700 opacity-20 grayscale scale-95'
                                             }`}>
-                                                <div className={`p-4 rounded-full mb-3 ${isUnlocked ? 'bg-white/20' : 'bg-slate-700'}`}>
-                                                    <LucideIcon name={b.icon} className={isUnlocked ? "text-white" : "text-slate-500"} size={36} />
+                                                <div className={`p-4 rounded-3xl mb-4 ${isUnlocked ? 'bg-white/20' : 'bg-slate-700'}`}>
+                                                    <Icon name={b.icon} size={40} className={isUnlocked ? "text-white" : "text-slate-500"} />
                                                 </div>
-                                                <span className={`text-base font-black text-center ${isUnlocked ? 'text-white' : 'text-slate-500'}`}>
-                                                    {b.name}
-                                                </span>
-                                                <span className="text-[10px] mt-1 uppercase font-bold tracking-widest opacity-60">
-                                                    {b.category}
-                                                </span>
+                                                <span className={`text-base font-black text-center ${isUnlocked ? 'text-white' : 'text-slate-500'}`}>{b.name}</span>
+                                                <span className="text-[10px] mt-1 font-bold uppercase tracking-widest opacity-60">{b.category}</span>
                                                 
-                                                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 translate-y-full w-40 p-3 bg-black text-white text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-2xl border border-slate-700">
-                                                    <p className="font-bold text-cyan-400 mb-1">{b.name}</p>
-                                                    <p>{b.desc}</p>
-                                                </div>
+                                                {isUnlocked && (
+                                                    <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 translate-y-full w-48 p-4 bg-black text-white text-xs rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-2xl border border-slate-700">
+                                                        <p className="font-black text-cyan-400 mb-1 text-sm">{b.name}</p>
+                                                        <p className="opacity-80 leading-relaxed">{b.desc}</p>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
                                 </div>
-                                <div className="mt-16 p-8 bg-slate-800/50 rounded-3xl border border-slate-700 text-center">
-                                    <p className="text-slate-400 font-medium">每累積 100 積分可解鎖一枚新的職能治療疾病徽章</p>
+                                <div className="mt-20 p-10 bg-slate-800/40 rounded-[3rem] border border-slate-800 text-center">
+                                    <p className="text-slate-500 font-bold italic">持續累積積分以收集更多職能治療臨床勳章</p>
                                 </div>
                             </div>
                         )}
                     </main>
 
-                    <footer className="p-10 text-center bg-slate-900/80 border-t border-slate-800">
-                        <div className="flex justify-center space-x-4 mb-4 text-slate-500">
-                            <LucideIcon name="Github" size={18} />
-                            <LucideIcon name="GraduationCap" size={18} />
-                            <LucideIcon name="HeartPulse" size={18} />
+                    <footer className="p-8 text-center text-slate-700">
+                        <div className="flex justify-center space-x-6 mb-4 opacity-50">
+                            <Icon name="Activity" size={16} />
+                            <Icon name="Stethoscope" size={16} />
+                            <Icon name="Accessibility" size={16} />
                         </div>
-                        <p className="text-slate-600 text-sm font-bold tracking-widest uppercase">
-                            OT Exam Adventure &copy; 2024 - 國考必勝・專業啟航
+                        <p className="text-[10px] font-black tracking-[0.3em] uppercase">
+                            Occupational Therapy Mastery &copy; 2024
                         </p>
                     </footer>
                 </div>
             );
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        // 等待所有腳本載入後再進行掛載
+        window.addEventListener('load', () => {
+            const rootElement = document.getElementById('root');
+            if (rootElement && window.ReactDOM) {
+                const root = ReactDOM.createRoot(rootElement);
+                root.render(<App />);
+            }
+        });
     </script>
 </body>
 </html>
