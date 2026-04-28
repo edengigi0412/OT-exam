@@ -17,49 +17,81 @@
             100% { transform: translateY(0px); }
         }
         .island-float { animation: float 4s ease-in-out infinite; }
-        body { background-color: #0f172a; margin: 0; overflow-x: hidden; color: white; min-height: 100vh; }
+        body { background-color: #0f172a; margin: 0; overflow-x: hidden; color: white; min-height: 100vh; font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; }
         .fade-in { animation: fadeIn 0.5s ease-out forwards; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
         [data-lucide] { display: inline-block; vertical-align: middle; }
+        .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
     </style>
 </head>
 <body>
-    <div id="root">
-        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; background: #0f172a; color: #4ade80;">
-            <div style="border: 4px solid #1e293b; border-top: 4px solid #4ade80; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
-            正在準備冒險地圖，請稍候...
-        </div>
-    </div>
-
-    <style>
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
+    <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
+        // 根據文件定義的八大島嶼
         const ISLANDS = [
-            { id: 'anatomy', name: '解剖學島', color: 'bg-red-500', icon: 'Stethoscope', landmark: '脊椎山脈', theme: 'text-red-100', detail: '結構、層次、身體構造' },
-            { id: 'physiology', name: '生理學島', color: 'bg-purple-600', icon: 'Brain', landmark: '心臟火山', theme: 'text-purple-100', detail: '動態運作、系統循環' },
-            { id: 'theory', name: '職能治療理論島', color: 'bg-emerald-500', icon: 'BookOpen', landmark: '模型神殿', theme: 'text-emerald-50', detail: '模型、框架、抽象思考' },
-            { id: 'pediatrics', name: '小兒職能治療島', color: 'bg-yellow-400', icon: 'Baby', landmark: '巨型溜滑梯', theme: 'text-yellow-900', detail: '發展、遊戲、感覺統合' },
-            { id: 'psychosocial', name: '身心障礙島', color: 'bg-indigo-900', icon: 'ShieldAlert', landmark: '情緒湖', theme: 'text-indigo-100', detail: '情緒、認知、內在世界' },
-            { id: 'physical', name: '生理障礙島', color: 'bg-orange-500', icon: 'RotateCcw', landmark: '復健訓練場', theme: 'text-orange-100', detail: '復健、功能恢復' },
-            { id: 'assistive', name: '輔具學島', color: 'bg-slate-400', icon: 'Settings', landmark: '機械塔', theme: 'text-slate-900', detail: '工具、設計、科技輔助' },
-            { id: 'random', name: '隨機出題島', color: 'bg-gradient-to-tr from-pink-500 to-cyan-500', icon: 'Compass', landmark: '隨機傳送門', theme: 'text-white', detail: '跨科目整合練習' },
+            { id: 'anatomy', name: '解剖學島', color: 'bg-red-500', icon: 'Stethoscope', landmark: '巨大脊椎山脈', theme: 'text-white', detail: '結構、層次、身體構造。地形包含肌肉層與骨骼山。', effect: '地面半透明，能看到血管流動' },
+            { id: 'physiology', name: '生理學島', color: 'bg-purple-600', icon: 'Activity', landmark: '跳動的心臟火山', theme: 'text-white', detail: '動態運作、系統循環。地形有流動河流與脈動地面。', effect: '神經閃電樹，島嶼會隨脈搏起伏' },
+            { id: 'theory', name: '職能治療理論島', color: 'bg-[#F5F5DC]', icon: 'BookOpen', landmark: '漂浮模型神殿', theme: 'text-emerald-900', detail: 'MOHO、PEO、Allen。幾何拼圖式浮島。', effect: '島嶼會隨理論框架重新排列' },
+            { id: 'pediatrics', name: '小兒職能治療島', color: 'bg-yellow-400', icon: 'Baby', landmark: '巨型溜滑梯山', theme: 'text-yellow-900', detail: '發展、遊戲、感覺統合。遊樂園與糖果地形。', effect: '感覺統合迷宮，重力會產生變化' },
+            { id: 'psychosocial', name: '身心障礙島', color: 'bg-indigo-900', icon: 'Moon', landmark: '色彩情緒湖', theme: 'text-indigo-100', detail: '情緒、認知、內在世界。半明半暗的光影對比。', effect: '天氣隨情緒值改變，充滿迷霧森林' },
+            { id: 'physical', name: '生理障礙島', color: 'bg-orange-500', icon: 'Settings', landmark: '復健訓練場', theme: 'text-white', detail: '復健、功能恢復。破碎地面與重建區域。', effect: '建築會動態修復重建，設有義肢工坊' },
+            { id: 'assistive', name: '輔具學島', color: 'bg-slate-400', icon: 'Cpu', landmark: '機械塔', theme: 'text-slate-900', detail: '工具、設計、科技輔助。科技城市與機械島。', effect: '自動變形建築，輪椅軌道城市' },
+            { id: 'random', name: '隨機出題島', color: 'bg-gradient-to-tr from-pink-500 via-cyan-500 to-yellow-500', icon: 'Compass', landmark: '隨機傳送門', theme: 'text-white', detail: '跨科目整合練習。不穩定且每次進入都不同。', effect: '地圖扭曲旋轉，出現漂浮問號石' },
         ];
 
         const BADGES = [
-            { id: 'adhd', name: 'ADHD', category: '小兒', color: 'bg-yellow-400', desc: '亮黃中心小光點' },
-            { id: 'asd', name: '自閉症', category: '小兒', color: 'bg-blue-400', desc: '彩色拼圖星球' },
-            { id: 'stroke', name: '腦中風', category: '生理', color: 'bg-red-700', desc: '中斷的血管' },
-            { id: 'parkinson', name: '帕金森', category: '生理', color: 'bg-purple-800', desc: '震動的手輪廓' },
-            { id: 'dementia', name: '失智症', category: '精神', color: 'bg-gray-300', desc: '消散的大腦碎片' },
-            { id: 'angelman', name: '天使症候群', category: '精神', color: 'bg-sky-300', desc: '微笑臉與光環' }
+            { id: 'adhd', name: 'ADHD', category: '小兒', color: 'bg-yellow-400', icon: 'Zap', desc: '中心小光點，外圍有跳動線條' },
+            { id: 'asd', name: '自閉症', category: '小兒', color: 'bg-blue-400', icon: 'Puzzle', desc: '彩色拼圖，圓圈包圍的小星球' },
+            { id: 'pompe', name: '龐貝氏症', category: '小兒', color: 'bg-orange-600', icon: 'Dna', desc: '肌肉纖維與小能量顆粒' },
+            { id: 'cp', name: '腦性麻痺', category: '小兒', color: 'bg-green-500', icon: 'Accessibility', desc: '簡化人物與支撐線條' },
+            { id: 'parkinson', name: '帕金森氏症', category: '生理', color: 'bg-purple-800', icon: 'Waves', desc: '手的輪廓與震動線條' },
+            { id: 'stroke', name: '腦中風', category: '生理', color: 'bg-red-700', icon: 'ZapOff', desc: '大腦與一條中斷的血管' },
+            { id: 'burn', name: '燒燙傷', category: '生理', color: 'bg-orange-700', icon: 'Flame', desc: '火焰與新生的皮膚(嫩葉)' },
+            { id: 'angelman', name: '天使症候群', category: '精神', color: 'bg-sky-300', icon: 'Smile', desc: '微笑臉與小光環' },
+            { id: 'dementia', name: '失智症', category: '精神', color: 'bg-slate-300', icon: 'CloudFog', desc: '大腦逐漸變成碎片消散' },
+            { id: 'schizo', name: '思覺失調症', category: '精神', color: 'bg-indigo-950', icon: 'Layers', desc: '臉部輪廓重疊或破碎鏡面' }
         ];
+
+        /**
+         * 優化過的 LucideIcon 組件
+         * 使用 useRef 鎖定 DOM 節點，並確保在 React 生命週期內安全掛載
+         */
+        const LucideIcon = ({ name, size = 24, className = "" }) => {
+            const iconRef = useRef(null);
+            
+            useEffect(() => {
+                // 檢查全域的 lucide 庫是否已載入
+                if (window.lucide && iconRef.current) {
+                    try {
+                        window.lucide.createIcons({
+                            attrs: {
+                                stroke: "currentColor",
+                                "stroke-width": 2,
+                                "stroke-linecap": "round",
+                                "stroke-linejoin": "round"
+                            }
+                        });
+                    } catch (e) {
+                        console.error("Lucide rendering error:", e);
+                    }
+                }
+            }, [name, size]);
+
+            return (
+                <span ref={iconRef} className={`inline-flex items-center justify-center ${className}`}>
+                    <i 
+                        data-lucide={name.toLowerCase()} 
+                        style={{ width: size, height: size }}
+                    ></i>
+                </span>
+            );
+        };
 
         function App() {
             const [view, setView] = useState('map');
@@ -68,16 +100,9 @@
             const [selectedIsland, setSelectedIsland] = useState(null);
             const [unlockedBadges, setUnlockedBadges] = useState([]);
 
-            const Icon = ({ name, size = 24, className = "" }) => {
-                useEffect(() => { 
-                    if (window.lucide) window.lucide.createIcons();
-                }, [view, name]);
-                return <i data-lucide={name.toLowerCase()} style={{ width: size, height: size }} className={className}></i>;
-            };
-
             const handleIslandClick = (island) => {
                 if (hearts <= 0) {
-                    alert("體力不足！請稍微休息一下再戰。");
+                    alert("體力不足！生命值每 30 分鐘恢復一顆。");
                     return;
                 }
                 setSelectedIsland(island);
@@ -86,59 +111,63 @@
 
             const handleStartQuiz = () => {
                 setHearts(h => Math.max(0, h - 1));
-                const newScore = score + 20;
+                const earnedPoints = 25;
+                const newScore = score + earnedPoints;
                 setScore(newScore);
-                const badgeIndex = Math.floor(newScore / 100);
-                if (badgeIndex > unlockedBadges.length && badgeIndex <= BADGES.length) {
-                    setUnlockedBadges(BADGES.slice(0, badgeIndex));
+
+                const badgeCount = Math.floor(newScore / 100);
+                if (badgeCount > unlockedBadges.length && badgeCount <= BADGES.length) {
+                    setUnlockedBadges(BADGES.slice(0, badgeCount));
                 }
-                alert('進入題目練習模式：共 40 題\n(目前為模擬模式，積分已增加 20)');
+                
+                alert(`開始練習！(消耗 1 點生命)\n本次練習獲得 ${earnedPoints} 積分。\n目前總積分：${newScore}`);
                 setView('map');
             };
 
             return (
-                <div className="min-h-screen flex flex-col font-sans bg-[#0f172a]">
+                <div className="min-h-screen flex flex-col bg-[#0f172a]">
                     <header className="p-4 bg-slate-800/90 backdrop-blur-md flex justify-between items-center sticky top-0 z-50 border-b border-slate-700 shadow-xl">
-                        <div className="flex items-center space-x-4">
-                            <div className="flex space-x-1 bg-slate-900 px-3 py-1.5 rounded-full border border-slate-700">
+                        <div className="flex items-center space-x-6">
+                            <div className="flex space-x-1.5 bg-slate-900 px-4 py-2 rounded-full border border-slate-700 shadow-inner">
                                 {[...Array(5)].map((_, i) => (
-                                    <Icon key={i} name="Heart" size={18} className={i < hearts ? "text-red-500 fill-red-500" : "text-slate-600"} />
+                                    <LucideIcon key={`heart-${i}`} name="Heart" size={20} className={i < hearts ? "text-red-500 fill-red-500" : "text-slate-700"} />
                                 ))}
                             </div>
-                            <div className="bg-slate-900 px-3 py-1.5 rounded-full border border-slate-700 text-yellow-400 flex items-center space-x-2">
-                                <Icon name="Trophy" size={18} />
-                                <span className="font-bold">{score}</span>
+                            <div className="bg-slate-900 px-4 py-2 rounded-full border border-slate-700 text-yellow-400 flex items-center space-x-2 shadow-inner">
+                                <LucideIcon name="Trophy" size={20} />
+                                <span className="font-black text-lg">{score}</span>
                             </div>
                         </div>
-                        <button onClick={() => setView('badges')} className="p-2 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors relative group">
-                            <Icon name="Award" className="text-cyan-400" />
-                            {unlockedBadges.length > 0 && (
-                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
-                                    {unlockedBadges.length}
-                                </span>
-                            )}
+                        <button 
+                            onClick={() => setView('badges')} 
+                            className="flex items-center space-x-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-full transition-all border border-slate-500 active:scale-95"
+                        >
+                            <LucideIcon name="Award" className="text-cyan-400" />
+                            <span className="font-bold text-sm">勳章館 ({unlockedBadges.length})</span>
                         </button>
                     </header>
 
-                    <main className="flex-1 p-6 flex flex-col items-center">
+                    <main className="flex-1 p-6 md:p-12 flex flex-col items-center">
+                        {/* 加入明確的 key 以防止 React 在切換 View 時發生 DOM 衝突 */}
                         {view === 'map' && (
-                            <div className="w-full max-w-5xl fade-in">
-                                <div className="text-center mb-10">
-                                    <h1 className="text-4xl md:text-5xl font-black mb-3 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 bg-clip-text text-transparent italic tracking-tighter">
+                            <div key="view-map" className="w-full max-w-6xl fade-in">
+                                <div className="text-center mb-12">
+                                    <h1 className="text-5xl md:text-6xl font-black mb-4 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 bg-clip-text text-transparent italic tracking-tighter">
                                         OT EXAM ADVENTURE
                                     </h1>
-                                    <p className="text-slate-400 font-medium">職能治療國考冒險：點擊島嶼開始修煉</p>
+                                    <p className="text-slate-400 text-lg font-medium">請選擇修煉島嶼進行 40 題國考練習</p>
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
                                     {ISLANDS.map(island => (
                                         <button 
-                                            key={island.id}
+                                            key={`island-${island.id}`}
                                             onClick={() => handleIslandClick(island)}
-                                            className={`${island.color} aspect-square rounded-3xl p-6 flex flex-col items-center justify-center shadow-2xl hover:scale-105 transition-all island-float group active:scale-95`}
+                                            className={`${island.color} aspect-square rounded-[2.5rem] p-8 flex flex-col items-center justify-center shadow-2xl hover:scale-105 transition-all island-float group relative overflow-hidden`}
                                         >
-                                            <Icon name={island.icon} size={56} className={`mb-4 ${island.theme} drop-shadow-lg`} />
-                                            <span className={`text-xl font-bold ${island.theme}`}>{island.name}</span>
-                                            <span className={`text-xs mt-2 opacity-80 ${island.theme}`}>{island.landmark}</span>
+                                            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                            <LucideIcon name={island.icon} size={64} className={`mb-4 ${island.theme} drop-shadow-lg group-hover:rotate-12 transition-transform`} />
+                                            <span className={`text-2xl font-black ${island.theme} mb-1`}>{island.name}</span>
+                                            <span className={`text-xs font-bold opacity-80 px-3 py-1 rounded-full bg-black/20 ${island.theme}`}>{island.landmark}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -146,20 +175,38 @@
                         )}
 
                         {view === 'mode-select' && selectedIsland && (
-                            <div className="w-full max-w-md fade-in">
-                                <button onClick={() => setView('map')} className="mb-6 flex items-center text-slate-400 hover:text-white transition-colors font-bold">
-                                    <Icon name="ChevronLeft" className="mr-1" /> <span>返回地圖</span>
+                            <div key="view-mode-select" className="w-full max-w-2xl fade-in">
+                                <button onClick={() => setView('map')} className="mb-8 flex items-center text-slate-400 hover:text-white transition-colors font-bold text-lg">
+                                    <LucideIcon name="ArrowLeft" className="mr-2" /> <span>返回冒險地圖</span>
                                 </button>
-                                <div className={`${selectedIsland.color} p-10 rounded-3xl mb-8 text-center shadow-2xl`}>
-                                    <Icon name={selectedIsland.icon} size={80} className={`mx-auto mb-4 ${selectedIsland.theme}`} />
-                                    <h2 className={`text-3xl font-bold mb-2 ${selectedIsland.theme}`}>{selectedIsland.name}</h2>
-                                    <p className={`text-sm opacity-90 ${selectedIsland.theme}`}>{selectedIsland.detail}</p>
+                                <div className={`${selectedIsland.color} p-12 rounded-[3rem] mb-10 text-center shadow-2xl relative overflow-hidden`}>
+                                    <LucideIcon name={selectedIsland.icon} size={100} className={`mx-auto mb-6 ${selectedIsland.theme} drop-shadow-2xl`} />
+                                    <h2 className={`text-4xl font-black mb-4 ${selectedIsland.theme}`}>{selectedIsland.name}</h2>
+                                    <p className={`text-lg font-medium leading-relaxed max-w-md mx-auto ${selectedIsland.theme} opacity-90`}>
+                                        {selectedIsland.detail}
+                                    </p>
+                                    <div className={`mt-4 text-sm font-bold p-2 inline-block rounded-lg bg-black/10 ${selectedIsland.theme}`}>
+                                        特殊效果：{selectedIsland.effect}
+                                    </div>
                                 </div>
-                                <div className="space-y-4">
-                                    {['隨機練習模式', '簡單模式', '困難模式', '錯題統整模式'].map(mode => (
-                                        <button key={mode} onClick={handleStartQuiz} className="w-full p-5 bg-slate-800 border border-slate-700 rounded-2xl hover:bg-slate-700 hover:border-cyan-500 transition-all text-left flex justify-between items-center group">
-                                            <span className="font-bold text-lg group-hover:text-cyan-400">{mode}</span>
-                                            <Icon name="Play" size={20} className="text-slate-600 group-hover:text-cyan-400" />
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {[
+                                        { id: 'random', n: '隨機出題模式', d: '系統隨機抽取 40 題' },
+                                        { id: 'easy', n: '簡單模式', d: '答對率 ≥ 50% 題目' },
+                                        { id: 'hard', n: '困難模式', d: '答對率 < 50% 題目' },
+                                        { id: 'wrong', n: '錯題統整模式', d: '複習先前答錯的內容' }
+                                    ].map(mode => (
+                                        <button 
+                                            key={`mode-${mode.id}`} 
+                                            onClick={handleStartQuiz} 
+                                            className="p-6 bg-slate-800 border-2 border-slate-700 rounded-3xl hover:bg-slate-700 hover:border-cyan-500 transition-all text-left group"
+                                        >
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="font-black text-xl group-hover:text-cyan-400">{mode.n}</span>
+                                                <LucideIcon name="PlayCircle" size={24} className="text-slate-600 group-hover:text-cyan-400" />
+                                            </div>
+                                            <p className="text-slate-400 text-sm group-hover:text-slate-300">{mode.d}</p>
                                         </button>
                                     ))}
                                 </div>
@@ -167,33 +214,56 @@
                         )}
 
                         {view === 'badges' && (
-                            <div className="w-full max-w-4xl text-center fade-in">
-                                <div className="flex justify-between items-center mb-10">
-                                    <button onClick={() => setView('map')} className="flex items-center text-slate-400 hover:text-white font-bold">
-                                        <Icon name="ChevronLeft" className="mr-1" /> <span>返回</span>
+                            <div key="view-badges" className="w-full max-w-5xl fade-in">
+                                <div className="flex justify-between items-center mb-12">
+                                    <button onClick={() => setView('map')} className="flex items-center text-slate-400 hover:text-white font-bold text-lg bg-slate-800 px-6 py-2 rounded-full border border-slate-700">
+                                        <LucideIcon name="ArrowLeft" className="mr-2" /> <span>返回</span>
                                     </button>
-                                    <h2 className="text-3xl font-bold text-yellow-500">勳章館</h2>
-                                    <div className="w-10"></div>
+                                    <h2 className="text-4xl font-black text-yellow-500 tracking-tight italic">COLLECTION HALL</h2>
+                                    <div className="text-slate-500 font-bold">進度: {unlockedBadges.length}/10</div>
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                                
+                                <div className="badge-grid">
                                     {BADGES.map(b => {
                                         const isUnlocked = unlockedBadges.some(ub => ub.id === b.id);
                                         return (
-                                            <div key={b.id} className={`p-8 rounded-3xl border flex flex-col items-center transition-all ${
-                                                isUnlocked ? `${b.color} border-transparent shadow-xl` : 'bg-slate-800/30 border-slate-700 opacity-40 grayscale'
+                                            <div key={`badge-${b.id}`} className={`p-6 rounded-[2rem] border-2 flex flex-col items-center transition-all relative group ${
+                                                isUnlocked ? `${b.color} border-transparent shadow-xl scale-100` : 'bg-slate-800/50 border-slate-700 opacity-30 grayscale scale-95'
                                             }`}>
-                                                <Icon name="Award" className={isUnlocked ? "text-white" : "text-slate-500"} size={40} />
-                                                <span className="text-xl font-bold mt-2">{b.name}</span>
+                                                <div className={`p-4 rounded-full mb-3 ${isUnlocked ? 'bg-white/20' : 'bg-slate-700'}`}>
+                                                    <LucideIcon name={b.icon} className={isUnlocked ? "text-white" : "text-slate-500"} size={36} />
+                                                </div>
+                                                <span className={`text-base font-black text-center ${isUnlocked ? 'text-white' : 'text-slate-500'}`}>
+                                                    {b.name}
+                                                </span>
+                                                <span className="text-[10px] mt-1 uppercase font-bold tracking-widest opacity-60">
+                                                    {b.category}
+                                                </span>
+                                                
+                                                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 translate-y-full w-40 p-3 bg-black text-white text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-2xl border border-slate-700">
+                                                    <p className="font-bold text-cyan-400 mb-1">{b.name}</p>
+                                                    <p>{b.desc}</p>
+                                                </div>
                                             </div>
                                         );
                                     })}
+                                </div>
+                                <div className="mt-16 p-8 bg-slate-800/50 rounded-3xl border border-slate-700 text-center">
+                                    <p className="text-slate-400 font-medium">每累積 100 積分可解鎖一枚新的職能治療疾病徽章</p>
                                 </div>
                             </div>
                         )}
                     </main>
 
-                    <footer className="p-8 text-center text-slate-600 text-xs bg-slate-900/50">
-                        &copy; 2024 OT Exam Adventure. 國考順利！
+                    <footer className="p-10 text-center bg-slate-900/80 border-t border-slate-800">
+                        <div className="flex justify-center space-x-4 mb-4 text-slate-500">
+                            <LucideIcon name="Github" size={18} />
+                            <LucideIcon name="GraduationCap" size={18} />
+                            <LucideIcon name="HeartPulse" size={18} />
+                        </div>
+                        <p className="text-slate-600 text-sm font-bold tracking-widest uppercase">
+                            OT Exam Adventure &copy; 2024 - 國考必勝・專業啟航
+                        </p>
                     </footer>
                 </div>
             );
