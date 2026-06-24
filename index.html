@@ -3,372 +3,1417 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>職能治療國考冒險群島</title>
-    <!-- 優先載入基礎樣式 -->
+    <title>OT 國考冒險島 - 職能治療複習遊戲</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 依序載入 React 核心庫 -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <!-- 最後載入編譯器 -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <style>
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-            100% { transform: translateY(0px); }
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #0b132b;
+            overflow-x: hidden;
         }
-        .island-float { animation: float 4s ease-in-out infinite; }
-        body { 
-            background-color: #0f172a; 
-            margin: 0; 
-            overflow-x: hidden; 
-            color: white; 
-            min-height: 100vh; 
-            font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; 
+        /* Custom Animations for Islands */
+        @keyframes wave {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(1deg); }
         }
-        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        @keyframes beat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
         }
-        .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
-        .option-btn { transition: all 0.2s; }
-        .option-btn:active { transform: scale(0.98); }
-        .option-btn:hover { background-color: #334155; border-color: #22d3ee; }
+        @keyframes float-slow {
+            0%, 100% { transform: translateY(0px) translateX(0px); }
+            50% { transform: translateY(-15px) translateX(10px); }
+        }
+        @keyframes rotate-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes pulse-blood {
+            0%, 100% { opacity: 0.3; filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.5)); }
+            50% { opacity: 0.8; filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.8)); }
+        }
+        .island-card {
+            animation: wave 6s ease-in-out infinite;
+        }
+        .island-card:nth-child(even) {
+            animation-delay: 1.5s;
+        }
+        .animate-beat {
+            animation: beat 1.2s infinite;
+        }
+        .animate-float {
+            animation: float-slow 8s ease-in-out infinite;
+        }
+        .animate-rotate {
+            animation: rotate-slow 20s linear infinite;
+        }
+        .pulse-vascular {
+            animation: pulse-blood 3s infinite;
+        }
+        /* Customized Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1c2541;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #48cae4;
+            border-radius: 4px;
+        }
     </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="text-gray-100 min-h-screen flex flex-col">
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- 靜態資料定義 ---
-        const ISLANDS = [
-            { id: 'anatomy', name: '解剖學島', color: 'bg-red-500', icon: 'Stethoscope', landmark: '巨大脊椎山脈', theme: 'text-white', detail: '結構、層次、身體構造。地形包含肌肉層與骨骼山。', effect: '地面半透明，能看到血管流動' },
-            { id: 'physiology', name: '生理學島', color: 'bg-purple-600', icon: 'Activity', landmark: '跳動的心臟火山', theme: 'text-white', detail: '動態運作、系統循環。地形有流動河流與脈動地面。', effect: '神經閃電樹，島嶼會隨脈搏起伏' },
-            { id: 'theory', name: '職能治療理論島', color: 'bg-[#F5F5DC]', icon: 'BookOpen', landmark: '漂浮模型神殿', theme: 'text-emerald-900', detail: 'MOHO、PEO、Allen。幾何拼圖式浮島。', effect: '島嶼會隨理論框架重新排列' },
-            { id: 'pediatrics', name: '小兒職能治療島', color: 'bg-yellow-400', icon: 'Baby', landmark: '溜滑梯山', theme: 'text-yellow-900', detail: '發展、遊戲、感覺統合。遊樂園與糖果地形。', effect: '感覺統合迷宮，重力會產生變化' },
-            { id: 'psychosocial', name: '身心障礙島', color: 'bg-indigo-900', icon: 'Moon', landmark: '色彩情緒湖', theme: 'text-indigo-100', detail: '情緒、認知、內在世界。半明半暗的光影對比。', effect: '天氣隨情緒值改變，充滿迷霧森林' },
-            { id: 'physical', name: '生理障礙島', color: 'bg-orange-500', icon: 'Settings', landmark: '復健訓練場', theme: 'text-white', detail: '復健、功能恢復。破碎地面與重建區域。', effect: '建築會動態修復重建，設有義肢工坊' },
-            { id: 'assistive', name: '輔具學島', color: 'bg-slate-400', icon: 'Cpu', landmark: '機械塔', theme: 'text-slate-900', detail: '工具、設計、科技輔助。科技城市與機械島。', effect: '自動變形建築，輪椅軌道城市' },
-            { id: 'random', name: '隨機出題島', color: 'bg-gradient-to-tr from-pink-500 via-cyan-500 to-yellow-500', icon: 'Compass', landmark: '隨機傳送門', theme: 'text-white', detail: '跨科目整合練習。不穩定且每次進入都不同。', effect: '地圖扭曲旋轉，出現漂浮問號石' },
-        ];
+    // Fallback configurations
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'ot-exam-adventure-v1';
+    let db, auth;
+    let firebaseEnabled = false;
 
-        const BADGES = [
-            { id: 'adhd', name: 'ADHD', category: '小兒', color: 'bg-yellow-400', icon: 'Zap', desc: '專注力與活動量調整' },
-            { id: 'asd', name: '自閉症', category: '小兒', color: 'bg-blue-400', icon: 'Puzzle', desc: '社交互動與重複性行為' },
-            { id: 'pompe', name: '龐貝氏症', category: '小兒', color: 'bg-orange-600', icon: 'Dna', desc: '罕見遺傳與肌肉功能' },
-            { id: 'cp', name: '腦性麻痺', category: '小兒', color: 'bg-green-500', icon: 'Accessibility', desc: '動作發展與張力控制' },
-            { id: 'parkinson', name: '帕金森氏症', category: '生理', color: 'bg-purple-800', icon: 'Waves', desc: '多巴胺不足與動作障礙' },
-            { id: 'stroke', name: '腦中風', category: '生理', color: 'bg-red-700', icon: 'ZapOff', desc: '血管意外與單側偏癱' },
-            { id: 'burn', name: '燒燙傷', category: '生理', color: 'bg-orange-700', icon: 'Flame', desc: '皮膚損傷與關節合約' },
-            { id: 'angelman', name: '天使症候群', category: '精神', color: 'bg-sky-300', icon: 'Smile', desc: '遺傳缺陷與愉悅表情' },
-            { id: 'dementia', name: '失智症', category: '精神', color: 'bg-slate-300', icon: 'CloudFog', desc: '記憶衰退與定向感喪失' },
-            { id: 'schizo', name: '思覺失調症', category: '精神', color: 'bg-indigo-950', icon: 'Layers', desc: '思考障礙與幻覺知覺' }
-        ];
+    // Check if firebase config is provided by environment
+    if (typeof __firebase_config !== 'undefined') {
+        try {
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            firebaseEnabled = true;
+            console.log("Firebase initialized successfully!");
+        } catch (e) {
+            console.error("Firebase initialization failed, running in offline/local storage mode", e);
+        }
+    }
 
-        const MOCK_QUESTIONS = [
-            { id: 1, text: "下列關於 PEO 模式的敘述，何者正確？", options: ["P 代表 Person (人)", "E 代表 Effort (努力)", "O 代表 Organization (組織)", "核心是疾病診斷"], answer: 0 },
-            { id: 2, text: "Allen 認知層級中，哪一層級開始能進行有目的的動作？", options: ["層級 1", "層級 2", "層級 3", "層級 4"], answer: 2 },
-            { id: 3, text: "關於副木(Splint)的製作原理，下列何者為非？", options: ["三點壓力原則", "分散壓力", "應避開骨突處", "越緊越好"], answer: 3 },
-            { id: 4, text: "職能治療實務架構 (OTPF) 中，下列何者屬於『個案因素』？", options: ["生活習慣", "身體功能", "文化情境", "角色期望"], answer: 1 }
-        ];
+    window.firebaseEnabled = firebaseEnabled;
+    window.db = db;
+    window.auth = auth;
+</script>
 
-        const Icon = ({ name, size = 24, className = "" }) => {
-            const icons = {
-                Stethoscope: <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3" />,
-                Activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
-                BookOpen: <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />,
-                Baby: <path d="M9 12h.01M15 12h.01M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 5 6.3M12 21a9 9 0 0 1 0-18" />,
-                Moon: <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />,
-                Settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 0-2-2h-.44a2 2 0 0 0-2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 0-2-2" />,
-                Cpu: <g><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M9 9h6v6H9zM15 2v2M9 2v2M15 20v2M9 20v2M20 15h2M20 9h2M2 15h2M2 9h2" /></g>,
-                Compass: <g><circle cx="12" cy="12" r="10" /><path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z" /></g>,
-                Heart: <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />,
-                Trophy: <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2Z" />,
-                Award: <g><circle cx="12" cy="8" r="6" /><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" /></g>,
-                Zap: <path d="M13 2 L3 14 L12 14 L11 22 L21 10 L12 10 Z" />,
-                Puzzle: <path d="M11.5 5.5a1.5 1.5 0 1 1 3 0c0 .4-.1.7-.3 1H18a2 2 0 0 1 2 2v3.8c.3-.2.6-.3 1-.3a1.5 1.5 0 1 1 0 3c-.4 0-.7-.1-1-.3V18a2 2 0 0 1-2 2h-3.8c.2-.3.3-.6.3-1a1.5 1.5 0 1 0-3 0c0 .4.1.7.3 1H8a2 2 0 0 1-2-2v-3.8c-.3.2-.6.3-1 .3a1.5 1.5 0 1 1 0-3c.4 0 .7.1 1 .3V8a2 2 0 0 1 2-2h3.8c-.2-.3-.3-.6-.3-1Z" />,
-                ArrowLeft: <path d="m12 19-7-7 7-7M5 12h14" />,
-                PlayCircle: <g><circle cx="12" cy="12" r="10" /><path d="m10 8 6 4-6 4V8z" /></g>,
-                Timer: <g><line x1="10" x2="14" y1="2" y2="2" /><path d="M12 14v-4M4 13a8 8 0 0 1 8-7 8 8 0 1 1-5.3 14L4 17.6" /></g>,
-                Accessibility: <path d="M12 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM2 9l3 1.5L6 14l1.5-1.5L9 9ZM22 9l-3 1.5L18 14l-1.5-1.5L15 9ZM12 7v8l-3 5M12 15l3 5" />,
-                Dna: <path d="m8 8 8 8M12 12h.01M19 6l-4 4M10 14l-4 4M7 22c-3.3 0-6-2.7-6-6 0-3.3 2.7-6 6-6s6 2.7 6 6-2.7 6-6 6ZM17 2c3.3 0 6 2.7 6 6 0 3.3-2.7 6-6 6s-6-2.7-6-6 2.7-6 6-6Z" />,
-                Waves: <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />,
-                ZapOff: <path d="M12.41 6.75 13 2l-2.43 2.92M18.57 12.91 21 10h-5.34M8 8l-5 6h9l-1 8 5-6M12 12l1 1" />,
-                Flame: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.292 1.3-3.143l3.2 3.143Z" />,
-                Smile: <g><circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" /></g>,
-                CloudFog: <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242M16 13H7M14 17H9M11 21h2" />,
-                Layers: <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.26 6.11a2 2 0 0 0 0 3.78l8.91 3.93a2 2 0 0 0 1.66 0l8.91-3.93a2 2 0 0 0 0-3.78ZM2 17.62l10 4.41 10-4.41M2 12.62l10 4.41 10-4.41" />
-            };
-
-            return (
-                <svg 
-                    viewBox="0 0 24 24" 
-                    width={size} 
-                    height={size} 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    className={className}
-                >
-                    {icons[name] || <circle cx="12" cy="12" r="10" />}
-                </svg>
-            );
-        };
-
-        function App() {
-            const [view, setView] = useState('map'); 
-            const [score, setScore] = useState(0);
-            const [hearts, setHearts] = useState(5);
-            const [selectedIsland, setSelectedIsland] = useState(null);
-            const [unlockedBadges, setUnlockedBadges] = useState([]);
+<script>
+    // Audio engine using Web Audio API to prevent external audio asset dependencies
+    const AudioEngine = {
+        ctx: null,
+        init() {
+            if (!this.ctx) {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        },
+        playCorrect() {
+            this.init();
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.type = 'triangle';
             
-            const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-            const [quizScore, setQuizScore] = useState(0);
-            const [quizTime, setQuizTime] = useState(600);
+            // Cute slide up
+            osc.frequency.setValueAtTime(523.25, now); // C5
+            osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.15); // C6
+            
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+            
+            osc.start(now);
+            osc.stop(now + 0.3);
+        },
+        playWrong() {
+            this.init();
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.type = 'sawtooth';
+            
+            osc.frequency.setValueAtTime(180, now);
+            osc.frequency.linearRampToValueAtTime(100, now + 0.25);
+            
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+            
+            osc.start(now);
+            osc.stop(now + 0.3);
+        },
+        playClick() {
+            this.init();
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.type = 'sine';
+            
+            osc.frequency.setValueAtTime(600, now);
+            osc.frequency.exponentialRampToValueAtTime(300, now + 0.08);
+            
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+            
+            osc.start(now);
+            osc.stop(now + 0.08);
+        },
+        playFanfare() {
+            this.init();
+            const now = this.ctx.currentTime;
+            const notes = [261.63, 329.63, 392.00, 523.25]; // C E G C chord
+            notes.forEach((freq, idx) => {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                gain.gain.setValueAtTime(0.15, now + idx * 0.1);
+                gain.gain.linearRampToValueAtTime(0.01, now + idx * 0.1 + 0.4);
+                osc.start(now + idx * 0.1);
+                osc.stop(now + idx * 0.1 + 0.4);
+            });
+        }
+    };
+</script>
 
-            useEffect(() => {
-                let timer;
-                if (view === 'quiz' && quizTime > 0) {
-                    timer = setInterval(() => setQuizTime(prev => prev - 1), 1000);
-                } else if (quizTime === 0 && view === 'quiz') {
-                    handleFinishQuiz(quizScore);
-                }
-                return () => clearInterval(timer);
-            }, [view, quizTime, quizScore]);
+<script>
+    // High-quality OT Mock Questions representing key subjects
+    const localQuestionBank = {
+        "anatomy": [
+            { id: "ana_1", question: "關於支配手部肌肉的神經支配，下列敘述何者錯誤？", options: ["正中神經支配大魚際肌（除內收拇肌外）", "尺神經支配所有骨間肌", "橈神經支配手背全部小肌肉", "橈神經支配伸腕與伸指肌群"], correctIndex: 2, explanation: "橈神經在手部僅負責感覺支配（手背橈側），不支配任何手部的內在肌（Intrinsic muscles）。", passRate: 68 },
+            { id: "ana_2", question: "肩關節旋轉肌袖（Rotator cuff）中，負責外展肩關節的主要肌肉是？", options: ["棘上肌 (Supraspinatus)", "棘下肌 (Infraspinatus)", "小圓肌 (Teres minor)", "肩胛下肌 (Subscapularis)"], correctIndex: 0, explanation: "棘上肌主要負責肩關節前 15 度的外展啟動；棘下肌及小圓肌負責外旋；肩胛下肌負責內旋。", passRate: 74 },
+            { id: "ana_3", question: "脊髓損傷中，自主神經反射異常（Autonomic Dysreflexia）最常發生在第幾節以上的損傷患者？", options: ["T6 以上", "T12 以上", "C5 以上", "L2 以上"], correctIndex: 0, explanation: "自主神經反射異常主要發生在 T6（第六胸髓）或其以上的脊髓損傷患者，是一項需緊急處置的醫學急症。", passRate: 48 }
+        ],
+        "physiology": [
+            { id: "phy_1", question: "心臟搏出量（Stroke Volume）受多種因素影響。當心肌前負荷（Preload）增加時，根據心臟定律，心肌收縮力會如何變化？", options: ["不變", "減弱", "增強", "先減弱後增強"], correctIndex: 2, explanation: "根據法蘭克-史達林定律（Frank-Starling Law），在心肌彈性限度內，前負荷越大（舒張末期容積增加），心肌纖維拉得越長，收縮力就越強。", passRate: 62 },
+            { id: "phy_2", question: "以下何者為副交感神經興奮時生理反應？", options: ["瞳孔放大", "支氣管收縮", "心跳加速", "腸胃蠕動減慢"], correctIndex: 1, explanation: "副交感神經負責「休息與消化」，會導致瞳孔收縮、支氣管收縮、心跳變慢、以及腸胃蠕動增加。", passRate: 51 },
+            { id: "phy_3", question: "當大腦皮質的運動區（Motor Area）受損，可能引發錐體路徑（Pyramidal Tract）異常。此路徑的主要功能為？", options: ["維持身體平衡", "調節內臟運動", "控制精細隨意運動", "協調肌肉張力"], correctIndex: 2, explanation: "皮質脊髓路徑（錐體路）主要負責控制人體骨骼肌的精密隨意運動，尤其是手部等精細活動。", passRate: 45 }
+        ],
+        "theory": [
+            { id: "the_1", question: "在職能適應模型（Occupational Adaptation, OA）中，最核心的關注焦點為何？", options: ["病患的日常自理獨立性提高", "個案與環境互動中，其內在適應能力的提升", "調整外在物理環境以符合個案需求", "提供特定輔具來替代失去的功能"], correctIndex: 1, explanation: "OA 模型的核心概念是，職能治療的目標是促進個案內在的「職能適應性（Occupational Adaptability）」，而非單純的任務完成。", passRate: 55 },
+            { id: "the_2", question: "人類職能模式（MOHO）將人類系統分為三個次系統，下列何者不屬於其中之一？", options: ["意志（Volition）", "習慣化（Habituation）", "操作表現能力（Performance Capacity）", "感覺統合（Sensory Integration）"], correctIndex: 3, explanation: "MOHO三大次系統包括：意志（Volition）、習慣化（Habituation）、表現能力（Performance Capacity）。感覺統合不屬於其架構。", passRate: 78 },
+            { id: "the_3", question: "在 PEO 模型中，促進「職能表現（Occupational Performance）」的最佳狀態是指什麼？", options: ["Person, Environment 與 Occupation 三者的交集重疊面積最大化", "個案的身體功能恢復到正常", "外在環境達到最無障礙狀態", "職能活動的難度降到最低"], correctIndex: 0, explanation: "PEO模型認為，當人（P）、環境（E）、職能任務（O）三者適配性越好（交集重疊區域越大），職能表現與滿意度就會越高。", passRate: 41 }
+        ],
+        "pediatric": [
+            { id: "ped_1", question: "依據 Ayres 感覺統合（Sensory Integration）理論，前庭系統（Vestibular System）與大腦中的哪一個構造關係最密切，負責調節肌肉張力與平衡維持？", options: ["小腦 (Cerebellum)", "枕葉 (Occipital lobe)", "顳葉 (Temporal lobe)", "海馬迴 (Hippocampus)"], correctIndex: 0, explanation: "前庭神經核與小腦、前庭脊髓束密切連結，直接影響身體的姿勢反應、眼球動作、肌肉張力與動態平衡控制。", passRate: 59 },
+            { id: "ped_2", question: "關於注意力不足過動症（ADHD）兒童的行為治療介入，下列何項原則最適當？", options: ["給予長遠且大型的終極獎勵以培養耐心", "獎懲規則應盡量繁複且保密以維持新鮮感", "提供立即、具體且一致的正向回饋", "應以處罰答錯題、忽視答對題為主"], correctIndex: 2, explanation: "ADHD兒童因前額葉執行功能不全，需要即時（Immediate）、具體（Specific）且前後一致的增強系統來協助行為塑造。", passRate: 83 },
+            { id: "ped_3", question: "小明是一位腦性麻痺兒童，其呈現雙下肢張力極高、交叉呈剪刀腳，而上肢功能受損較輕。此種腦性麻痺臨床分類最可能為？", options: ["徐動型 (Athetoid)", "雙邊癱瘓型 (Diplegia)", "單肢癱瘓型 (Monoplegia)", "偏癱型 (Hemiplegia)"], correctIndex: 1, explanation: "雙邊癱瘓型（Diplegia）是痙攣型腦麻中最常見的形式，典型表現為兩側下肢受累嚴重程度遠大於上肢。", passRate: 46 }
+        ],
+        "psychiatric": [
+            { id: "psy_1", question: "在艾倫認知階層（Allen Cognitive Levels, ACL）中，患者開始出現「目標導向動作（Goal-directed Actions）」，可透過視覺線索完成熟悉工作，但無法因應新事物，這屬於第幾階層？", options: ["第 3 階（手部動作）", "第 4 階（目標導向）", "第 5 階（探索性動作）", "第 2 階（體幹動作）"], correctIndex: 1, explanation: "ACL 第 4 階（Level 4）為目標導向動作，患者可完成熟知的日常事務，但缺乏隨機應變能力，需要實體視覺範例輔助。", passRate: 52 },
+            { id: "psy_2", question: "思覺失調症（Schizophrenia）患者出現「負性症狀（Negative symptoms）」，職能介入時最容易遇到何種阻礙？", options: ["聽幻覺干擾", "情緒高昂躁動", "動機低落與社會退縮", "被害妄想"], correctIndex: 2, explanation: "負性症狀包括情感淡漠、無動機（Avolion）、社交退縮等，常常使患者難以主動投入職能活動，是慢性化的核心挑戰。", passRate: 67 },
+            { id: "psy_3", question: "關於失智症（Dementia）中晚期患者的職能治療，下列何種環境與活動規劃原則最具療效？", options: ["定期重新裝潢病房以訓練患者的適應力", "引入高難度數獨等抽象認知挑戰以維持智力", "利用患者過去生活經驗，進行「懷舊治療」並提供熟悉且結構化的日常環境", "避免一切日常活動，由照顧者全面代勞以策安全"], correctIndex: 2, explanation: "失智症介入首重安全與定向。懷舊治療利用其長期記憶，能減輕焦慮並提升效能；結構化且穩定的環境則可預防混亂。", passRate: 43 }
+        ],
+        "physical": [
+            { id: "phy_d1", question: "帕金森氏症（Parkinson's Disease）患者因黑質多巴胺退化，臨床常出現多項動作障礙。下列哪一項不屬於主要運動徵象？", options: ["靜止性震顫 (Resting tremor)", "肌肉僵直 (Rigidity)", "動作遲緩 (Bradykinesia)", "意向性震顫 (Intentional tremor)"], correctIndex: 3, explanation: "意向性震顫（Intentional tremor）是小腦病變的典型特徵，而帕金森氏症（基底核病變）主要呈現靜止性震顫（Resting tremor）。", passRate: 56 },
+            { id: "phy_d2", question: "腦中風（Stroke）患者急性期過後，為誘發其偏癱側肢體主動運動，常使用「強迫限制健側運動療法（CIMT）」，其主要理論基礎為？", options: ["神經修復論", "克服「習得廢用（Learned nonuse）」與促進神經重塑", "肌肉力量肥大理論", "反射階層理論"], correctIndex: 1, explanation: "CIMT（Constraint-Induced Movement Therapy）藉由限制健側手，強迫患者多使用患側手，以打破病患因中風後失敗經驗所產生的「習得廢用」，活化大腦運動區皮質重塑。", passRate: 63 },
+            { id: "phy_d3", question: "燒燙傷患者在關節處植皮後，為預防疤痕攣縮（Contracture），復健副木（Splint）的擺位原則為何？", options: ["擺位在使肌肉縮短之舒適姿勢", "擺位在抗攣縮（Anti-deformity）或關節最大伸展伸張狀態", "不需擺位，應保持完全不活動狀態", "擺位在關節屈曲 90 度以維持功能性使用"], correctIndex: 1, explanation: "燒燙傷疤痕會朝向屈曲收縮方向拉扯。復健擺位與副木必須維持在抗攣縮方向（如肩外展、肘伸直、手部外在肌正向擺位），以對抗攣縮張力。", passRate: 40 }
+        ],
+        "assistive": [
+            { id: "ast_1", question: "配置手動輪椅時，若座椅深度（Seat Depth）過深，最可能對個案身體造成何種直接不良影響？", options: ["輪椅重心不穩向前傾倒", "壓迫膕窩（Popliteal fossa）影響血液循環，並導致骨盆後傾與駝背姿勢", "造成個案大腿容易向兩側外展", "座椅容易滑動不穩"], correctIndex: 1, explanation: "座深過深會頂到膝蓋後方的膕窩，導致患者不得不往前滑坐，進而造成骨盆後傾（Pelvic posterior tilt），對薦骨皮膚造成巨大剪力。", passRate: 60 },
+            { id: "ast_2", question: "在設計生活輔助器具（Adaptive devices）時，為了讓類風濕性關節炎（RA）個案在烹飪時省力並保護關節，下列哪項工具把手設計最符合保護關節原則？", options: ["握柄加粗、加大、材質止滑的專用刀具", "極細硬鋼絲材質把手", "必須用指尖用力捏握的手持削皮器", "重金屬製握把以增加向下重力"], correctIndex: 0, explanation: "粗大止滑把手能分配手掌施力面積，減少指關節捏握（Pinch）所需施加的小關節壓力，符合RA關節保護原則（Joint protection）。", passRate: 75 },
+            { id: "ast_3", question: "電腦輔具中，對於有嚴重不自主震顫（如腦麻徐動型）的個案，若想使用滑鼠，應設定下列何種功能來過濾不小心點擊產生的多餘訊號？", options: ["滑鼠軌跡放大", "按鍵遲緩（Slow keys）與彈跳過濾（Filter keys）設定", "螢幕鍵盤自動掃描模式", "提高滑鼠移動靈敏度到最高"], correctIndex: 1, explanation: "彈跳過濾（Filter keys / BounceKeys）可忽略使用者因不自主抖動產生的快速且重複的無意按壓，只保留有意的長按，對不自主運動患者極有助益。", passRate: 49 }
+        ],
+        "random": [] // Generated dynamically or selected from other categories
+    };
 
-            const handleIslandClick = (island) => {
-                if (hearts <= 0) {
-                    alert("體力不足！生命值每 30 分鐘恢復一顆。");
-                    return;
-                }
-                setSelectedIsland(island);
-                setView('mode-select');
-            };
+    // Combine all to random pool
+    localQuestionBank.random = [
+        ...localQuestionBank.anatomy,
+        ...localQuestionBank.physiology,
+        ...localQuestionBank.theory,
+        ...localQuestionBank.pediatric,
+        ...localQuestionBank.psychiatric,
+        ...localQuestionBank.physical,
+        ...localQuestionBank.assistive
+    ];
+</script>
 
-            const handleStartQuiz = () => {
-                setHearts(h => Math.max(0, h - 1));
-                setQuizTime(600);
-                setQuizScore(0);
-                setCurrentQuestionIndex(0);
-                setView('quiz');
-            };
+<!-- Top Dashboard / Header -->
+<header class="bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-40 shadow-md">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+        <!-- Logo and Title -->
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-gradient-to-tr from-cyan-500 to-indigo-600 rounded-lg flex items-center justify-center text-white shadow-lg animate-pulse">
+                <i class="fa-solid fa-compass text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-300">OT 國考冒險島</h1>
+                <p class="text-xs text-slate-400">職能治療學科模擬考複捷徑</p>
+            </div>
+        </div>
 
-            const handleAnswer = (optionIndex) => {
-                const isCorrect = optionIndex === MOCK_QUESTIONS[currentQuestionIndex].answer;
-                const nextScore = isCorrect ? quizScore + 1 : quizScore;
-                
-                if (isCorrect) setQuizScore(nextScore);
-
-                if (currentQuestionIndex < MOCK_QUESTIONS.length - 1) {
-                    setCurrentQuestionIndex(prev => prev + 1);
-                } else {
-                    handleFinishQuiz(nextScore);
-                }
-            };
-
-            const handleFinishQuiz = (finalQuizScore) => {
-                const earnedPoints = finalQuizScore * 10;
-                const newTotalScore = score + earnedPoints;
-                setScore(newTotalScore);
-
-                const badgeCount = Math.floor(newTotalScore / 100);
-                if (badgeCount > unlockedBadges.length && badgeCount <= BADGES.length) {
-                    const newBadges = BADGES.slice(0, badgeCount);
-                    setUnlockedBadges(newBadges);
-                }
-
-                alert(`測驗結束！\n答對題數：${finalQuizScore}\n獲得積分：${earnedPoints}\n目前總積分：${newTotalScore}`);
-                setView('map');
-            };
-
-            const formatTime = (seconds) => {
-                const m = Math.floor(seconds / 60);
-                const s = seconds % 60;
-                return `${m}:${s < 10 ? '0' : ''}${s}`;
-            };
-
-            return (
-                <div className="min-h-screen flex flex-col bg-[#0f172a] text-white">
-                    <header className="p-4 bg-slate-800/90 backdrop-blur-md flex justify-between items-center sticky top-0 z-50 border-b border-slate-700 shadow-xl">
-                        <div className="flex items-center space-x-3 md:space-x-6">
-                            <div className="flex space-x-1 bg-slate-900 px-3 py-1.5 rounded-full border border-slate-700">
-                                {[...Array(5)].map((_, i) => (
-                                    <Icon key={`h-${i}`} name="Heart" size={18} className={i < hearts ? "text-red-500 fill-red-500" : "text-slate-700"} />
-                                ))}
-                            </div>
-                            <div className="bg-slate-900 px-3 py-1.5 rounded-full border border-slate-700 text-yellow-400 flex items-center space-x-2">
-                                <Icon name="Trophy" size={18} />
-                                <span className="font-bold">{score}</span>
-                            </div>
-                        </div>
-                        {view === 'map' && (
-                            <button onClick={() => setView('badges')} className="flex items-center space-x-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-full transition-all text-sm font-bold border border-slate-500">
-                                <Icon name="Award" size={18} className="text-cyan-400" />
-                                <span>勳章館 ({unlockedBadges.length})</span>
-                            </button>
-                        )}
-                    </header>
-
-                    <main className="flex-1 p-6 md:p-12 flex flex-col items-center">
-                        {view === 'map' && (
-                            <div className="w-full max-w-6xl fade-in text-center">
-                                <h1 className="text-4xl md:text-6xl font-black mb-4 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 bg-clip-text text-transparent italic tracking-tighter uppercase">
-                                    OT Exam Adventure
-                                </h1>
-                                <p className="text-slate-400 mb-12 font-medium">點擊島嶼開始修煉職能治療國考知識</p>
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
-                                    {ISLANDS.map(island => (
-                                        <button 
-                                            key={island.id}
-                                            onClick={() => handleIslandClick(island)}
-                                            className={`${island.color} aspect-square rounded-[2rem] p-6 flex flex-col items-center justify-center shadow-2xl hover:scale-105 transition-all island-float group`}
-                                        >
-                                            <Icon name={island.icon} size={48} className={`mb-3 ${island.theme} drop-shadow-lg group-hover:rotate-12 transition-transform`} />
-                                            <span className={`text-xl font-bold ${island.theme}`}>{island.name}</span>
-                                            <span className={`text-[10px] mt-2 opacity-70 font-bold px-2 py-0.5 rounded-full bg-black/20 ${island.theme}`}>{island.landmark}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {view === 'mode-select' && selectedIsland && (
-                            <div className="w-full max-w-2xl fade-in">
-                                <button onClick={() => setView('map')} className="mb-6 flex items-center text-slate-400 hover:text-white font-bold transition-colors">
-                                    <Icon name="ArrowLeft" size={20} className="mr-2" /> <span>返回冒險地圖</span>
-                                </button>
-                                <div className={`${selectedIsland.color} p-10 rounded-[2.5rem] mb-8 text-center shadow-2xl relative overflow-hidden`}>
-                                    <Icon name={selectedIsland.icon} size={80} className={`mx-auto mb-4 ${selectedIsland.theme}`} />
-                                    <h2 className={`text-3xl font-black mb-2 ${selectedIsland.theme}`}>{selectedIsland.name}</h2>
-                                    <p className={`opacity-90 max-w-md mx-auto ${selectedIsland.theme}`}>{selectedIsland.detail}</p>
-                                    <div className={`mt-4 text-xs font-bold inline-block px-4 py-1.5 rounded-full bg-black/10 ${selectedIsland.theme}`}>
-                                        特殊環境：{selectedIsland.effect}
-                                    </div>
-                                </div>
-                                <div className="grid gap-4">
-                                    {[
-                                        { id: 'r', n: '隨機 40 題模式', d: '系統從題庫中隨機抽選題目進行練習' },
-                                        { id: 'e', n: '高頻考點模式', d: '針對國考出現頻率最高的題目進行強化' }
-                                    ].map(mode => (
-                                        <button key={mode.id} onClick={handleStartQuiz} className="p-6 bg-slate-800 border-2 border-slate-700 rounded-3xl flex justify-between items-center hover:border-cyan-500 hover:bg-slate-700 transition-all text-left group">
-                                            <div>
-                                                <div className="font-bold text-xl group-hover:text-cyan-400 transition-colors">{mode.n}</div>
-                                                <div className="text-sm text-slate-400 mt-1">{mode.d}</div>
-                                            </div>
-                                            <Icon name="PlayCircle" className="text-slate-600 group-hover:text-cyan-400" size={32} />
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {view === 'quiz' && (
-                            <div className="w-full max-w-3xl fade-in">
-                                <div className="flex justify-between items-center mb-6 bg-slate-800 p-5 rounded-3xl border border-slate-700 shadow-xl">
-                                    <div className="flex items-center space-x-3 text-cyan-400 font-mono font-bold text-xl">
-                                        <Icon name="Timer" size={24} />
-                                        <span>{formatTime(quizTime)}</span>
-                                    </div>
-                                    <div className="font-bold text-slate-400 text-sm tracking-widest uppercase">
-                                        Question {currentQuestionIndex + 1} / {MOCK_QUESTIONS.length}
-                                    </div>
-                                    <div className="text-yellow-400 font-black text-xl">
-                                        PTS: {quizScore * 10}
-                                    </div>
-                                </div>
-
-                                <div className="bg-slate-800 p-10 rounded-[2.5rem] border border-slate-700 shadow-2xl mb-8 min-h-[240px] flex items-center justify-center text-center">
-                                    <h3 className="text-2xl md:text-3xl font-bold leading-snug">
-                                        {MOCK_QUESTIONS[currentQuestionIndex].text}
-                                    </h3>
-                                </div>
-
-                                <div className="grid gap-4">
-                                    {MOCK_QUESTIONS[currentQuestionIndex].options.map((opt, i) => (
-                                        <button 
-                                            key={i} 
-                                            onClick={() => handleAnswer(i)}
-                                            className="option-btn p-6 bg-slate-800 border-2 border-slate-700 rounded-2xl text-left font-bold flex items-center group"
-                                        >
-                                            <span className="w-10 h-10 rounded-xl bg-slate-700 group-hover:bg-cyan-500 group-hover:text-black transition-colors flex items-center justify-center mr-5 text-lg font-black border border-slate-600">
-                                                {String.fromCharCode(65 + i)}
-                                            </span>
-                                            <span className="text-lg">{opt}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {view === 'badges' && (
-                            <div className="w-full max-w-5xl fade-in">
-                                <div className="flex justify-between items-end mb-10 border-b border-slate-800 pb-6">
-                                    <button onClick={() => setView('map')} className="flex items-center text-slate-400 hover:text-white font-bold bg-slate-800 px-6 py-2.5 rounded-full border border-slate-700 transition-colors">
-                                        <Icon name="ArrowLeft" className="mr-2" size={20} /> <span>返回冒險</span>
-                                    </button>
-                                    <div className="text-right">
-                                        <h2 className="text-4xl font-black text-yellow-500 italic uppercase tracking-tighter">Collection Hall</h2>
-                                        <p className="text-slate-500 text-xs font-bold mt-1">解鎖進度: {unlockedBadges.length} / {BADGES.length}</p>
-                                    </div>
-                                </div>
-                                
-                                <div className="badge-grid">
-                                    {BADGES.map(b => {
-                                        const isUnlocked = unlockedBadges.some(ub => ub.id === b.id);
-                                        return (
-                                            <div key={b.id} className={`p-6 rounded-[2.5rem] border-2 flex flex-col items-center transition-all relative group ${
-                                                isUnlocked ? `${b.color} border-transparent shadow-2xl scale-100` : 'bg-slate-800/50 border-slate-700 opacity-20 grayscale scale-95'
-                                            }`}>
-                                                <div className={`p-4 rounded-3xl mb-4 ${isUnlocked ? 'bg-white/20' : 'bg-slate-700'}`}>
-                                                    <Icon name={b.icon} size={40} className={isUnlocked ? "text-white" : "text-slate-500"} />
-                                                </div>
-                                                <span className={`text-base font-black text-center ${isUnlocked ? 'text-white' : 'text-slate-500'}`}>{b.name}</span>
-                                                <span className="text-[10px] mt-1 font-bold uppercase tracking-widest opacity-60">{b.category}</span>
-                                                
-                                                {isUnlocked && (
-                                                    <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 translate-y-full w-48 p-4 bg-black text-white text-xs rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-2xl border border-slate-700">
-                                                        <p className="font-black text-cyan-400 mb-1 text-sm">{b.name}</p>
-                                                        <p className="opacity-80 leading-relaxed">{b.desc}</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                <div className="mt-20 p-10 bg-slate-800/40 rounded-[3rem] border border-slate-800 text-center">
-                                    <p className="text-slate-500 font-bold italic">持續累積積分以收集更多職能治療臨床勳章</p>
-                                </div>
-                            </div>
-                        )}
-                    </main>
-
-                    <footer className="p-8 text-center text-slate-700">
-                        <div className="flex justify-center space-x-6 mb-4 opacity-50">
-                            <Icon name="Activity" size={16} />
-                            <Icon name="Stethoscope" size={16} />
-                            <Icon name="Accessibility" size={16} />
-                        </div>
-                        <p className="text-[10px] font-black tracking-[0.3em] uppercase">
-                            Occupational Therapy Mastery &copy; 2024
-                        </p>
-                    </footer>
+        <!-- Stats Block -->
+        <div class="flex flex-wrap items-center gap-4 md:gap-6 bg-slate-950/60 py-2 px-4 rounded-xl border border-slate-800">
+            <!-- Hearts -->
+            <div class="flex items-center gap-2">
+                <div class="flex" id="heart-container">
+                    <!-- Dynamic Hearts -->
                 </div>
-            );
+                <span class="text-xs text-rose-400 font-bold" id="heart-timer-display">5/5</span>
+            </div>
+            <!-- Score -->
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-star text-amber-400 text-lg"></i>
+                <div>
+                    <span class="text-xs text-slate-400">總積分</span>
+                    <p class="text-sm font-bold text-amber-300" id="global-score">0 Pts</p>
+                </div>
+            </div>
+            <!-- Badge count -->
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-award text-purple-400 text-lg"></i>
+                <div>
+                    <span class="text-xs text-slate-400">徽章</span>
+                    <p class="text-sm font-bold text-purple-300" id="unlocked-count">0/10</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Profile Login Button -->
+        <div id="user-profile-zone" class="flex items-center gap-3">
+            <button onclick="openAuthModal()" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-md transition-all duration-300 flex items-center gap-2">
+                <i class="fa-solid fa-user-astronaut"></i> 登入記錄學習歷程
+            </button>
+        </div>
+    </div>
+</header>
+
+<!-- Navigation Tabs -->
+<div class="bg-slate-950/40 border-b border-slate-800/80 sticky top-[73px] md:top-[65px] z-30 backdrop-blur-md">
+    <div class="max-w-4xl mx-auto flex justify-around p-1">
+        <button onclick="switchTab('map')" id="tab-btn-map" class="tab-btn py-3 px-6 text-sm font-bold flex items-center gap-2 border-b-2 border-cyan-500 text-cyan-400 transition-all duration-300">
+            <i class="fa-solid fa-map-marked-alt"></i> 冒險地圖
+        </button>
+        <button onclick="switchTab('notebook')" id="tab-btn-notebook" class="tab-btn py-3 px-6 text-sm font-medium flex items-center gap-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all duration-300">
+            <i class="fa-solid fa-book-medical"></i> 錯題統整簿
+            <span id="mistake-badge" class="hidden bg-rose-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">0</span>
+        </button>
+        <button onclick="switchTab('badges')" id="tab-btn-badges" class="tab-btn py-3 px-6 text-sm font-medium flex items-center gap-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all duration-300">
+            <i class="fa-solid fa-trophy"></i> 徽章展示館
+        </button>
+    </div>
+</div>
+
+<!-- Main Container -->
+<main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+    
+    <!-- Tab 1: Adventure Map -->
+    <section id="tab-map" class="tab-content block">
+        <!-- Map Overview / Description -->
+        <div class="text-center max-w-2xl mx-auto mb-8 mt-2">
+            <h2 class="text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-400">職能治療海域</h2>
+            <p class="text-sm text-slate-400 mt-2">海上漂浮著代表國考各大科目的冒險島嶼。點擊一座島嶼消耗一顆愛心，選擇你的練習模式，啟航挑戰吧！</p>
+        </div>
+
+        <!-- Simulated Sea Web Page Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-2 md:px-6 relative">
+            <!-- Simulated sea current background grid -->
+            <div class="absolute inset-0 bg-blue-950/20 rounded-3xl -z-10 pointer-events-none"></div>
+
+            <!-- Island 1: Anatomy -->
+            <div onclick="selectIsland('anatomy')" class="island-card cursor-pointer bg-slate-900/90 rounded-2xl p-5 border-2 border-red-500/30 hover:border-red-500/80 hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] transition-all duration-500 group relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-red-500/10 rounded-full blur-2xl group-hover:bg-red-500/20 transition-all"></div>
+                <div class="flex items-start justify-between">
+                    <span class="text-xs font-bold text-red-400 bg-red-950/80 px-2 py-1 rounded-md border border-red-800/40">解剖學島</span>
+                    <i class="fa-solid fa-bone text-2xl text-red-500 group-hover:scale-125 transition-transform duration-300"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mt-3 group-hover:text-red-300 transition-colors">身體構造與肌肉山脈</h3>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">概念：結構、層次、身體構造。地形仿若人體剖面，佈滿巨大的脊椎山脈與手掌森林。</p>
+                <div class="mt-4 flex items-center justify-between">
+                    <span class="text-[11px] text-slate-400 font-medium">特效：脈動血管流動地面</span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-red-500 pulse-vascular"></span>
+                </div>
+            </div>
+
+            <!-- Island 2: Physiology -->
+            <div onclick="selectIsland('physiology')" class="island-card cursor-pointer bg-slate-900/90 rounded-2xl p-5 border-2 border-blue-500/30 hover:border-blue-500/80 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-500 group relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"></div>
+                <div class="flex items-start justify-between">
+                    <span class="text-xs font-bold text-blue-400 bg-blue-950/80 px-2 py-1 rounded-md border border-blue-800/40">生理學島</span>
+                    <i class="fa-solid fa-heart-pulse text-2xl text-blue-500 group-hover:scale-125 transition-transform duration-300 animate-beat"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mt-3 group-hover:text-blue-300 transition-colors">心臟火山與神經閃電</h3>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">概念：系統循環與動態運作。起伏的地面交織電光紫的神經網絡，跳動著熾熱的心臟火山。</p>
+                <div class="mt-4 flex items-center justify-between">
+                    <span class="text-[11px] text-slate-400 font-medium">特效：島嶼隨律動呼吸起伏</span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping"></span>
+                </div>
+            </div>
+
+            <!-- Island 3: Theory -->
+            <div onclick="selectIsland('theory')" class="island-card cursor-pointer bg-slate-900/90 rounded-2xl p-5 border-2 border-teal-500/30 hover:border-teal-500/80 hover:shadow-[0_0_20px_rgba(20,184,166,0.3)] transition-all duration-500 group relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-teal-500/10 rounded-full blur-2xl group-hover:bg-teal-500/20 transition-all"></div>
+                <div class="flex items-start justify-between">
+                    <span class="text-xs font-bold text-teal-400 bg-teal-950/80 px-2 py-1 rounded-md border border-teal-800/40">職能治療理論島</span>
+                    <i class="fa-solid fa-shapes text-2xl text-teal-500 group-hover:rotate-45 transition-transform duration-300"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mt-3 group-hover:text-teal-300 transition-colors">拼圖幾何理論神殿</h3>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">概念：模型、框架、抽象思考。柔和米色與藍綠構成的幾何浮島，空中漂浮著 MOHO、PEO 神殿。</p>
+                <div class="mt-4 flex items-center justify-between">
+                    <span class="text-[11px] text-slate-400 font-medium">特效：拼圖幾何神殿重組</span>
+                    <span class="text-xs text-teal-400 font-mono">MOHO</span>
+                </div>
+            </div>
+
+            <!-- Island 4: Pediatric -->
+            <div onclick="selectIsland('pediatric')" class="island-card cursor-pointer bg-slate-900/90 rounded-2xl p-5 border-2 border-pink-500/30 hover:border-pink-500/80 hover:shadow-[0_0_20px_rgba(236,72,153,0.3)] transition-all duration-500 group relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-pink-500/10 rounded-full blur-2xl group-hover:bg-pink-500/20 transition-all"></div>
+                <div class="flex items-start justify-between">
+                    <span class="text-xs font-bold text-pink-400 bg-pink-950/80 px-2 py-1 rounded-md border border-pink-800/40">小兒職能治療島</span>
+                    <i class="fa-solid fa-child-reaching text-2xl text-pink-500 group-hover:scale-125 transition-transform duration-300"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mt-3 group-hover:text-pink-300 transition-colors">感覺統合糖果樂園</h3>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">概念：發展、遊戲、感覺統合。高飽和度色彩，巨大的彩虹溜滑梯與感覺統合彈跳迷宮。</p>
+                <div class="mt-4 flex items-center justify-between">
+                    <span class="text-[11px] text-slate-400 font-medium">特效：反重力漂浮微粒</span>
+                    <span class="w-2 h-2 rounded-full bg-pink-400 animate-bounce"></span>
+                </div>
+            </div>
+
+            <!-- Island 5: Psychiatric -->
+            <div onclick="selectIsland('psychiatric')" class="island-card cursor-pointer bg-slate-900/90 rounded-2xl p-5 border-2 border-purple-500/30 hover:border-purple-500/80 hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] transition-all duration-500 group relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"></div>
+                <div class="flex items-start justify-between">
+                    <span class="text-xs font-bold text-purple-400 bg-purple-950/80 px-2 py-1 rounded-md border border-purple-800/40">身心障礙治療島</span>
+                    <i class="fa-solid fa-brain text-2xl text-purple-500 group-hover:scale-125 transition-transform duration-300"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mt-3 group-hover:text-purple-300 transition-colors">情緒之湖與認知迷霧</h3>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">概念：情緒、認知、內在世界。深藍與紫灰構成半明半暗的地貌，迷霧森林與能感知情緒的魔幻之湖。</p>
+                <div class="mt-4 flex items-center justify-between">
+                    <span class="text-[11px] text-slate-400 font-medium">特效：天氣隨答對率改變</span>
+                    <span class="text-xs text-purple-400 font-mono"><i class="fa-solid fa-cloud"></i> 霧</span>
+                </div>
+            </div>
+
+            <!-- Island 6: Physical -->
+            <div onclick="selectIsland('physical')" class="island-card cursor-pointer bg-slate-900/90 rounded-2xl p-5 border-2 border-orange-500/30 hover:border-orange-500/80 hover:shadow-[0_0_20px_rgba(249,115,22,0.3)] transition-all duration-500 group relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 rounded-full blur-2xl group-hover:bg-orange-500/20 transition-all"></div>
+                <div class="flex items-start justify-between">
+                    <span class="text-xs font-bold text-orange-400 bg-orange-950/80 px-2 py-1 rounded-md border border-orange-800/40">生理障礙治療島</span>
+                    <i class="fa-solid fa-wheelchair text-2xl text-orange-500 group-hover:scale-125 transition-transform duration-300"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mt-3 group-hover:text-orange-300 transition-colors">復健工坊與重建碎地</h3>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">概念：復健、功能恢復。橘與灰相間，崩裂地殼上聳立著巨型化復健器械訓練場與義肢工坊。</p>
+                <div class="mt-4 flex items-center justify-between">
+                    <span class="text-[11px] text-slate-400 font-medium">特效：完答後播放拼圖修復</span>
+                    <span class="text-xs text-orange-400 font-mono"><i class="fa-solid fa-hammer"></i> 建設中</span>
+                </div>
+            </div>
+
+            <!-- Island 7: Assistive -->
+            <div onclick="selectIsland('assistive')" class="island-card cursor-pointer bg-slate-900/90 rounded-2xl p-5 border-2 border-indigo-500/30 hover:border-indigo-500/80 hover:shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all duration-500 group relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all"></div>
+                <div class="flex items-start justify-between">
+                    <span class="text-xs font-bold text-indigo-400 bg-indigo-950/80 px-2 py-1 rounded-md border border-indigo-800/40">輔具學島</span>
+                    <i class="fa-solid fa-robot text-2xl text-indigo-500 group-hover:scale-125 transition-transform duration-300"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mt-3 group-hover:text-indigo-300 transition-colors">機械軌道與未來都市</h3>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">概念：科技輔助、工具設計。銀色機械架構在發光藍線中展開，輪椅磁軌高空穿行、機械塔自動變形。</p>
+                <div class="mt-4 flex items-center justify-between">
+                    <span class="text-[11px] text-slate-400 font-medium">特效：滑鼠Hover變形建築</span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
+                </div>
+            </div>
+
+            <!-- Island 8: Random -->
+            <div onclick="selectIsland('random')" class="island-card cursor-pointer bg-slate-900/90 rounded-2xl p-5 border-2 border-cyan-400/30 hover:border-cyan-400 hover:shadow-[0_0_25px_rgba(34,211,238,0.4)] transition-all duration-500 group relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-cyan-400/10 rounded-full blur-2xl group-hover:bg-cyan-400/20 transition-all"></div>
+                <div class="flex items-start justify-between">
+                    <span class="text-xs font-bold text-cyan-400 bg-cyan-950/80 px-2 py-1 rounded-md border border-cyan-800/40">隨機跨科整合島</span>
+                    <i class="fa-solid fa-circle-question text-2xl text-cyan-400 group-hover:rotate-180 transition-transform duration-500"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mt-3 group-hover:text-cyan-300 transition-colors">漂浮問號與隨機傳送門</h3>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">概念：地圖扭曲、旋轉、不穩定。七大科目題目不規則混編，每次進入環境、顏色配置均隨機抽動。</p>
+                <div class="mt-4 flex items-center justify-between">
+                    <span class="text-[11px] text-slate-400 font-medium">特效：地圖隨機扭曲、多色跳動</span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tab 2: Mistake Notebook -->
+    <section id="tab-notebook" class="tab-content hidden">
+        <div class="max-w-4xl mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-rose-400"><i class="fa-solid fa-book-medical"></i> 錯題累積本</h2>
+                    <p class="text-xs text-slate-400 mt-1">系統為您整理在各島嶼中答錯的國考題，反覆練習能徹底消除知識盲區。</p>
+                </div>
+                <button onclick="clearAllMistakes()" class="bg-slate-800 hover:bg-slate-700 text-rose-400 hover:text-rose-300 text-xs font-semibold py-2 px-4 rounded-lg border border-slate-700 transition">
+                    <i class="fa-solid fa-trash-can"></i> 排除全部已掌握錯題
+                </button>
+            </div>
+
+            <!-- Mistake Cards Container -->
+            <div id="mistakes-container" class="space-y-4">
+                <!-- Fallback empty state -->
+                <div class="bg-slate-900 border border-slate-800 p-8 text-center rounded-2xl">
+                    <i class="fa-solid fa-heart-circle-check text-4xl text-emerald-500/80 mb-3"></i>
+                    <p class="text-slate-300 font-semibold">太棒了！目前沒有任何錯題紀錄</p>
+                    <p class="text-xs text-slate-500 mt-1">至海域中挑戰題庫，若有不慎答錯的題目將會彙整於此。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tab 3: Badges Gallery -->
+    <section id="tab-badges" class="tab-content hidden">
+        <div class="max-w-5xl mx-auto">
+            <div class="text-center mb-8">
+                <h2 class="text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400"><i class="fa-solid fa-award"></i> 職能治療疾病徽章展示館</h2>
+                <p class="text-xs text-slate-400 mt-1">每累積達 100 積分，即可解鎖 1 個極具 OT 臨床醫學特徵的主題徽章。點擊尚未解鎖的徽章可消耗分數點數進行兌換。</p>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-6" id="badges-container">
+                <!-- Badges dynamically rendered here -->
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- Floating Widget: Gemini Infinite Question Generator Configuration -->
+<div class="max-w-4xl mx-auto px-4 mb-8">
+    <div class="bg-slate-900/80 border border-indigo-500/30 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-indigo-950 rounded-lg flex items-center justify-center text-indigo-400 border border-indigo-500/30">
+                <i class="fa-solid fa-robot text-lg"></i>
+            </div>
+            <div>
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    Gemini AI 國考題庫產生器 
+                    <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] px-2 py-0.5 rounded-full font-semibold">進階選配</span>
+                </h3>
+                <p class="text-[11px] text-slate-400">當系統啟用此選項，在各島嶼進行測驗時，系統會動態使用 Gemini 3.1 產生無限專屬練習題！</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3 w-full md:w-auto">
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="gemini-ai-switch" class="sr-only peer" onchange="toggleGeminiSwitch()">
+                <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-300 after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+                <span class="ml-2 text-xs font-bold text-slate-300">啟用 AI 出題</span>
+            </label>
+        </div>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="bg-slate-950 border-t border-slate-900 py-6 text-center text-xs text-slate-500 mt-12">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
+        <p>© 2026 OT 國考冒險島 - 專屬職能治療學系(OT) 專技高考複習工具</p>
+        <p class="flex items-center gap-2 text-[10px]"><i class="fa-solid fa-shield"></i> 遵守 strict paths 規範保存使用者學習歷程檔案</p>
+    </div>
+</footer>
+
+<!-- Auth Modal -->
+<div id="auth-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl relative">
+        <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+        <div class="text-center">
+            <div class="w-16 h-16 bg-gradient-to-tr from-cyan-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white mx-auto shadow-xl mb-4 text-2xl">
+                <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white">登入 OT 國考冒險島</h3>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">我們提供匿名快速登入與 Google 身分儲存，以便記錄您的答題積分、生命值與已收集解鎖的疾病徽章！</p>
+        </div>
+        <div class="mt-6 space-y-3">
+            <button onclick="mockGoogleLogin()" class="w-full bg-slate-850 hover:bg-slate-800 text-slate-100 border border-slate-700 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow transition-all duration-200">
+                <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5.04c1.61 0 3.09.56 4.23 1.64l3.15-3.15C17.45 1.76 14.95 1 12 1 7.37 1 3.44 3.76 1.6 7.78l3.77 2.92C6.27 7.42 8.9 5.04 12 5.04z"/><path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.6-.2-2.38H12v4.51h6.46c-.28 1.48-1.12 2.73-2.38 3.58l3.7 2.87c2.16-1.99 3.41-4.93 3.41-8.58z"/><path fill="#FBBC05" d="M5.37 10.7C5.12 11.45 5 12.23 5 13c0 .77.12 1.55.37 2.3l-3.77 2.92C.6 16.5 0 14.81 0 13c0-1.81.6-3.5 1.6-5.22l3.77 2.92z"/><path fill="#34A853" d="M12 18.96c-3.1 0-5.73-2.38-6.63-5.66l-3.77 2.92C3.44 20.24 7.37 23 12 23c2.95 0 5.43-.98 7.24-2.65l-3.7-2.87c-.98.66-2.23 1.48-3.54 1.48z"/></svg>
+                使用 Google 帳號授權登入
+            </button>
+            <button onclick="anonymousLogin()" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all duration-200">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> 訪客匿名一鍵登入
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Island Mode Select Modal -->
+<div id="mode-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl relative overflow-hidden">
+        <div id="mode-island-color-bar" class="absolute top-0 left-0 right-0 h-2 bg-cyan-500"></div>
+        <button onclick="closeModeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+        
+        <div class="flex items-center gap-3 mt-2">
+            <div id="mode-island-icon-container" class="w-12 h-12 rounded-2xl bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-xl border">
+                <!-- Island icon -->
+            </div>
+            <div>
+                <h3 id="mode-island-title" class="text-xl font-extrabold text-white">科目名稱</h3>
+                <p id="mode-island-desc" class="text-xs text-slate-400 mt-0.5">關卡科目簡述</p>
+            </div>
+        </div>
+
+        <div class="mt-6 border border-slate-800/80 rounded-2xl p-3 bg-slate-950/40 flex justify-between items-center">
+            <span class="text-xs text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-battery-half text-rose-400"></i> 每輪測驗消耗生命值</span>
+            <span class="text-sm text-rose-400 font-extrabold flex items-center gap-1"><i class="fa-solid fa-heart animate-beat"></i> 1 顆愛心</span>
+        </div>
+
+        <!-- Mode Grid Options -->
+        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-6 mb-3">選擇本次練習模式 (每次固定40題/體驗)</h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Mode 1: Random -->
+            <button onclick="startPracticeMode('random')" class="flex items-start gap-3 p-3 bg-slate-850/60 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-left rounded-xl transition duration-250 group">
+                <div class="p-2 rounded-lg bg-blue-950 text-blue-400 group-hover:scale-105 transition"><i class="fa-solid fa-shuffle"></i></div>
+                <div>
+                    <h5 class="text-sm font-bold text-white">隨機出題模式</h5>
+                    <p class="text-[11px] text-slate-400 mt-0.5">題目混編隨機抽選</p>
+                </div>
+            </button>
+            <!-- Mode 2: Easy -->
+            <button onclick="startPracticeMode('easy')" class="flex items-start gap-3 p-3 bg-slate-850/60 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-left rounded-xl transition duration-250 group">
+                <div class="p-2 rounded-lg bg-emerald-950 text-emerald-400 group-hover:scale-105 transition"><i class="fa-solid fa-face-smile"></i></div>
+                <div>
+                    <h5 class="text-sm font-bold text-white">簡單模式</h5>
+                    <p class="text-[11px] text-slate-400 mt-0.5">答對率 &ge; 50% 歷屆國考精選</p>
+                </div>
+            </button>
+            <!-- Mode 3: Hard -->
+            <button onclick="startPracticeMode('hard')" class="flex items-start gap-3 p-3 bg-slate-850/60 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-left rounded-xl transition duration-250 group">
+                <div class="p-2 rounded-lg bg-amber-950 text-amber-400 group-hover:scale-105 transition"><i class="fa-solid fa-fire"></i></div>
+                <div>
+                    <h5 class="text-sm font-bold text-white">困難模式</h5>
+                    <p class="text-[11px] text-slate-400 mt-0.5">答對率 &lt; 50% 高頻易混淆題</p>
+                </div>
+            </button>
+            <!-- Mode 4: Mistakes -->
+            <button onclick="startPracticeMode('mistakes')" id="mode-mistake-btn" class="flex items-start gap-3 p-3 bg-slate-850/60 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-left rounded-xl transition duration-250 group">
+                <div class="p-2 rounded-lg bg-rose-950 text-rose-400 group-hover:scale-105 transition"><i class="fa-solid fa-heart-crack"></i></div>
+                <div>
+                    <h5 class="text-sm font-bold text-white">錯題複習模式</h5>
+                    <p class="text-[11px] text-slate-400 mt-0.5" id="mode-mistake-count">專屬歷史答錯題目強化 (0 題)</p>
+                </div>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Play Quiz Arena Modal -->
+<div id="quiz-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 hidden flex flex-col p-4">
+    <div class="max-w-3xl w-full mx-auto my-auto bg-slate-900 border border-slate-800 rounded-3xl flex flex-col max-h-[90vh] shadow-2xl relative overflow-hidden">
+        
+        <!-- Quiz Header -->
+        <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/40">
+            <div>
+                <span id="quiz-header-tag" class="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">Anatomy</span>
+                <h3 class="text-base font-bold text-white mt-1" id="quiz-header-title">解剖學挑戰區</h3>
+            </div>
+            <button onclick="quitQuizPrompt()" class="text-slate-400 hover:text-rose-400 transition"><i class="fa-solid fa-power-off text-lg"></i></button>
+        </div>
+
+        <!-- Quiz Progress Bar -->
+        <div class="h-1.5 w-full bg-slate-800">
+            <div id="quiz-progress" class="h-full bg-gradient-to-r from-cyan-400 to-indigo-500 w-0 transition-all duration-300"></div>
+        </div>
+
+        <!-- Play Stats HUD -->
+        <div class="px-6 py-2 flex justify-between items-center bg-slate-900 border-b border-slate-850/50 text-xs">
+            <span class="text-slate-400" id="quiz-step-text">題號: 1/10</span>
+            <div class="flex items-center gap-3">
+                <span class="text-emerald-400 font-bold" id="quiz-correct-count"><i class="fa-solid fa-circle-check"></i> 答對: 0</span>
+                <span class="text-rose-400 font-bold" id="quiz-wrong-count"><i class="fa-solid fa-circle-xmark"></i> 答錯: 0</span>
+            </div>
+        </div>
+
+        <!-- Question Body Area (Scrollable if question is long) -->
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            <!-- Question text -->
+            <div class="bg-slate-950/50 rounded-2xl p-4 border border-slate-800">
+                <span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded mb-2 inline-block" id="quiz-item-rate">歷年答對率：--%</span>
+                <p id="quiz-question-text" class="text-base md:text-lg text-slate-100 font-medium leading-relaxed">
+                    載入題目中...
+                </p>
+            </div>
+
+            <!-- Options Grid -->
+            <div class="space-y-3" id="quiz-options-container">
+                <!-- Option buttons loaded dynamically -->
+            </div>
+
+            <!-- Explanation Panel -->
+            <div id="quiz-explanation-panel" class="hidden bg-slate-850/60 border border-slate-850 rounded-2xl p-4 space-y-2">
+                <h4 class="text-xs font-bold text-cyan-400 flex items-center gap-1.5"><i class="fa-solid fa-lightbulb"></i> 考題解析說明</h4>
+                <p id="quiz-explanation-text" class="text-xs text-slate-300 leading-relaxed"></p>
+            </div>
+        </div>
+
+        <!-- Quiz Navigation Action Area -->
+        <div class="p-6 border-t border-slate-800 bg-slate-950/30 flex justify-between items-center">
+            <span class="text-slate-500 text-[10px]">答錯不扣分，提供詳盡解析</span>
+            <button id="quiz-next-btn" onclick="nextQuestion()" disabled class="bg-slate-800 cursor-not-allowed text-slate-500 font-bold px-6 py-2.5 rounded-xl text-sm transition flex items-center gap-2">
+                <span>下一題</span> <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Simple custom prompt/alert modal (Replacement for alert() as per instructions) -->
+<div id="custom-alert-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center">
+        <div id="alert-icon" class="w-12 h-12 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-full flex items-center justify-center mx-auto text-xl mb-4">
+            <i class="fa-solid fa-circle-info"></i>
+        </div>
+        <h4 id="alert-title" class="text-lg font-bold text-white">通知</h4>
+        <p id="alert-message" class="text-xs text-slate-400 mt-2 leading-relaxed">訊息內容</p>
+        <button onclick="closeCustomAlert()" class="mt-6 w-full bg-slate-800 hover:bg-slate-750 border border-slate-700 py-2.5 rounded-xl font-bold text-sm text-slate-200 transition">
+            確認
+        </button>
+    </div>
+</div>
+
+<script>
+    // State management
+    const gameState = {
+        userId: "local-user",
+        username: "探險家 (未登入)",
+        score: 0,
+        hearts: 5,
+        lastHeartRegen: Date.now(),
+        unlockedBadges: [],
+        mistakeQuestions: [],
+        currentIsland: null,
+        currentMode: null,
+        activeQuizSet: [],
+        currentQuestionIndex: 0,
+        quizCorrectCount: 0,
+        quizWrongCount: 0,
+        answeredCorrectly: null,
+        geminiAiEnabled: false
+    };
+
+    // Disease Badges definitions (10 total, specified by user)
+    const badgeDefinitions = [
+        { id: "adhd", name: "ADHD (過動)", category: "pediatric", cost: 100, desc: "注意力不足過動症。特徵：不專注、過動及衝動。圖案象徵中心亮點與外圍跳動波形。", color: "from-amber-400 to-blue-500", icon: `<svg viewBox="0 0 100 100" class="w-16 h-16 mx-auto"><circle cx="50" cy="50" r="6" fill="#FBBF24" /><path d="M50,10 Q30,50 50,90 Q70,50 50,10" fill="none" stroke="#3B82F6" stroke-width="2" stroke-dasharray="3,3" /><path d="M10,50 Q50,30 90,50 Q50,70 10,50" fill="none" stroke="#FBBF24" stroke-width="2" /></svg>` },
+        { id: "autism", name: "自閉症拼圖", category: "pediatric", cost: 100, desc: "社交與溝通困難。圖案採用代表多元光譜與連結的紅、黃、藍、綠經典拼圖元件。", color: "from-red-500 via-yellow-400 to-emerald-500", icon: `<svg viewBox="0 0 100 100" class="w-16 h-16 mx-auto"><rect x="35" y="35" width="30" height="30" rx="4" fill="#EF4444" opacity="0.8" /><rect x="45" y="45" width="20" height="20" rx="3" fill="#3B82F6" opacity="0.9" /><path d="M50,20 A30,30 0 1,0 80,50" fill="none" stroke="#FBBF24" stroke-width="3" stroke-linecap="round" /></svg>` },
+        { id: "pompe", name: "龐貝氏肌肉", category: "pediatric", cost: 100, desc: "龐貝氏症。罕見遺傳性肌肉無力。圖案呈現交錯的肌纖維束與高能代謝顆粒。", color: "from-orange-500 to-red-700", icon: `<svg viewBox="0 0 100 100" class="w-16 h-16 mx-auto"><path d="M20,30 C40,40 60,20 80,30 M20,50 C40,60 60,40 80,50 M20,70 C40,80 60,60 80,70" stroke="#F97316" stroke-width="5" stroke-linecap="round" fill="none" /><circle cx="35" cy="45" r="4" fill="#EF4444" /><circle cx="65" cy="55" r="4" fill="#EF4444" /></svg>` },
+        { id: "cp", name: "腦麻支撐線", category: "pediatric", cost: 100, desc: "腦性麻痺。早期動作發展受限。圖形使用簡化人形結合外部導向支撐穩定線條。", color: "from-emerald-500 to-sky-500", icon: `<svg viewBox="0 0 100 100" class="w-16 h-16 mx-auto"><circle cx="50" cy="25" r="10" fill="#10B981" /><path d="M50,35 L50,65 L35,85 M50,65 L65,85 M30,45 L70,45" stroke="#10B981" stroke-width="4" stroke-linecap="round" fill="none" /><path d="M25,20 L25,85 M75,20 L75,85" stroke="#0EA5E9" stroke-width="2" stroke-dasharray="4,4" /></svg>` },
+        { id: "parkinson", name: "帕金森顫動", category: "physical", cost: 100, desc: "帕金森氏症。特徵為靜止性震顫。圖形刻劃手部輪廓向外擴散的細微高頻顫動線。", color: "from-purple-500 to-gray-500", icon: `<svg viewBox="0 0 100 100" class="w-16 h-16 mx-auto"><path d="M40,75 L40,50 C40,45 35,45 35,40 L35,25 C35,20 40,20 40,25 L40,50" stroke="#8B5CF6" stroke-width="3" fill="none" /><path d="M42,50 L42,30 L45,15 L48,30" stroke="#8B5CF6" stroke-width="3" fill="none" /><path d="M40,25 L45,25 M30,30 Q35,32 30,35 M65,30 Q70,32 65,35" stroke="#9CA3AF" stroke-width="2" /></svg>` },
+        { id: "stroke", name: "腦中風預警", category: "physical", cost: 100, desc: "大腦血管突發梗塞或出血。圖案由完整大腦剪影與一道割裂通路的紅色雷擊符號組成。", color: "from-red-500 via-white to-blue-900", icon: `<svg viewBox="0 0 100 100" class="w-16 h-16 mx-auto"><path d="M50,15 C25,15 20,45 40,75 C45,85 55,85 60,75 C80,45 75,15 50,15 Z" fill="#1E3A8A" opacity="0.8" /><path d="M45,30 L60,45 L50,50 L58,70" stroke="#EF4444" stroke-width="5" fill="none" stroke-linejoin="round" /></svg>` },
+        { id: "burn", name: "燒燙傷重生", category: "physical", cost: 100, desc: "皮膚熱損傷疤痕增生。圖案繪有外部烈焰，中心托起一朵粉綠新生的嫩芽皮膚線條。", color: "from-orange-600 to-pink-300", icon: `<svg viewBox="0 0 100 100" class="w-16 h-16 mx-auto"><path d="M50,85 C20,85 20,40 50,15 C80,40 80,85 50,85 Z" fill="none" stroke="#EA580C" stroke-width="4" /><path d="M50,75 C40,75 40,55 50,45 C60,55 60,75 50,75 Z" fill="#F9A8D4" opacity="0.8" /><path d="M50,55 Q55,45 65,45 Q55,55 50,55" fill="#10B981" /></svg>` },
+        { id: "angelman", name: "天使微笑翼", category: "psychiatric", cost: 100, desc: "天使症候群。表現出無端大笑、拍手。圖形為純白明快笑容搭配一對上揚的天使羽翼。", color: "from-yellow-300 to-sky-400", icon: `<svg viewBox="0 0 100 100" class="w-16 h-16 mx-auto"><circle cx="50" cy="45" r="20" fill="none" stroke="#FCD34D" stroke-width="3" /><path d="M40,48 Q50,58 60,48" stroke="#FCD34D" stroke-width="3" fill="none" /><path d="M25,45 C15,35 15,15 25,25 Q35,35 25,45 Z" fill="#38BDF8" opacity="0.7" /><path d="M75,45 C85,35 85,15 75,25 Q65,35 75,45 Z" fill="#38BDF8" opacity="0.7" /></svg>` },
+        { id: "dementia", name: "失智消散印", category: "psychiatric", cost: 100, desc: "漸進式大腦記憶功能減退。圖案展示逐步沙化、分解向空中點狀消散的漸層大腦。", color: "from-slate-500 to-slate-200", icon: `<svg viewBox="0 0 100 100" class="w-16 h-16 mx-auto"><path d="M50,20 C35,20 25,35 30,55 C33,65 40,75 50,75" stroke="#94A3B8" stroke-width="4" fill="none" /><circle cx="60" cy="25" r="3" fill="#E2E8F0" /><circle cx="70" cy="35" r="4" fill="#E2E8F0" /><circle cx="65" cy="50" r="3.5" fill="#E2E8F0" /><circle cx="62" cy="65" r="3" fill="#E2E8F0" /></svg>` },
+        { id: "schizo", name: "思覺裂鏡像", category: "psychiatric", cost: 100, desc: "思考及知覺失調。圖案為深色重疊的容顏剪影，由中央如蛛網般裂開的破碎鏡面隔開。", color: "from-blue-900 via-purple-900 to-black", icon: `<svg viewBox="0 0 100 100" class="w-16 h-16 mx-auto"><circle cx="45" cy="50" r="22" fill="#312E81" opacity="0.6" /><circle cx="55" cy="50" r="22" fill="#581C87" opacity="0.6" /><line x1="50" y1="15" x2="50" y2="85" stroke="#000" stroke-width="3" /><line x1="20" y1="40" x2="80" y2="60" stroke="#000" stroke-width="2" /></svg>` }
+    ];
+
+    // Subject mapping
+    const subjectNames = {
+        "anatomy": "解剖學島",
+        "physiology": "生理學島",
+        "theory": "職能治療理論島",
+        "pediatric": "小兒職能治療島",
+        "psychiatric": "身心障礙職能治療島",
+        "physical": "生理障礙職能治療島",
+        "assistive": "輔具學島",
+        "random": "隨機出題島"
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+        loadStateFromLocalStorage();
+        initUI();
+        startHeartRegenTimer();
+    });
+
+    // Save game state locally
+    function saveStateToLocalStorage() {
+        localStorage.setItem('ot_exam_gamestate', JSON.stringify({
+            score: gameState.score,
+            hearts: gameState.hearts,
+            lastHeartRegen: gameState.lastHeartRegen,
+            unlockedBadges: gameState.unlockedBadges,
+            mistakeQuestions: gameState.mistakeQuestions
+        }));
+        updateDashboardHUD();
+    }
+
+    // Load game state from local storage or cloud if authenticated
+    function loadStateFromLocalStorage() {
+        const stored = localStorage.getItem('ot_exam_gamestate');
+        if (stored) {
+            try {
+                const parsed = JSON.parse(stored);
+                gameState.score = parsed.score || 0;
+                gameState.hearts = typeof parsed.hearts !== 'undefined' ? parsed.hearts : 5;
+                gameState.lastHeartRegen = parsed.lastHeartRegen || Date.now();
+                gameState.unlockedBadges = parsed.unlockedBadges || [];
+                gameState.mistakeQuestions = parsed.mistakeQuestions || [];
+            } catch (e) {
+                console.error("Error parsing stored game state", e);
+            }
+        }
+    }
+
+    // Initialize UI Elements
+    function initUI() {
+        updateDashboardHUD();
+        renderBadgesList();
+        renderMistakeList();
+    }
+
+    // Update HUD Stats at Top
+    function updateDashboardHUD() {
+        document.getElementById('global-score').innerText = `${gameState.score} Pts`;
+        document.getElementById('unlocked-count').innerText = `${gameState.unlockedBadges.length}/10`;
+        
+        // Render Heart Display
+        const container = document.getElementById('heart-container');
+        container.innerHTML = '';
+        for (let i = 1; i <= 5; i++) {
+            const h = document.createElement('i');
+            if (i <= gameState.hearts) {
+                h.className = "fa-solid fa-heart text-rose-500 text-lg mr-1 animate-beat";
+            } else {
+                h.className = "fa-regular fa-heart text-slate-700 text-lg mr-1";
+            }
+            container.appendChild(h);
         }
 
-        // 等待所有腳本載入後再進行掛載
-        window.addEventListener('load', () => {
-            const rootElement = document.getElementById('root');
-            if (rootElement && window.ReactDOM) {
-                const root = ReactDOM.createRoot(rootElement);
-                root.render(<App />);
+        // Mistake notebook count badge
+        const mBadge = document.getElementById('mistake-badge');
+        if (gameState.mistakeQuestions.length > 0) {
+            mBadge.innerText = gameState.mistakeQuestions.length;
+            mBadge.classList.remove('hidden');
+        } else {
+            mBadge.classList.add('hidden');
+        }
+    }
+
+    // Heart Recovery Timer (Every 30 minutes regen 1 heart)
+    function startHeartRegenTimer() {
+        setInterval(() => {
+            if (gameState.hearts < 5) {
+                const elapsed = Date.now() - gameState.lastHeartRegen;
+                const regenInterval = 30 * 60 * 1000; // 30 minutes in ms
+                
+                if (elapsed >= regenInterval) {
+                    const heartsToAdd = Math.floor(elapsed / regenInterval);
+                    gameState.hearts = Math.min(5, gameState.hearts + heartsToAdd);
+                    gameState.lastHeartRegen = Date.now() - (elapsed % regenInterval);
+                    saveStateToLocalStorage();
+                    showCustomAlert("系統提示", "生命值（愛心）已自動恢復 1 顆！");
+                } else {
+                    const remainingMs = regenInterval - elapsed;
+                    const mins = Math.floor(remainingMs / 60000);
+                    const secs = Math.floor((remainingMs % 60000) / 1000);
+                    document.getElementById('heart-timer-display').innerText = `${gameState.hearts}/5 (回滿中: ${mins}:${secs < 10 ? '0' : ''}${secs})`;
+                }
+            } else {
+                document.getElementById('heart-timer-display').innerText = "5/5 (生命全滿)";
+            }
+        }, 1000);
+    }
+
+    // Toggle Gemini Option
+    function toggleGeminiSwitch() {
+        const toggle = document.getElementById('gemini-ai-switch');
+        gameState.geminiAiEnabled = toggle.checked;
+        if (gameState.geminiAiEnabled) {
+            showCustomAlert("AI 出題啟用", "每次測驗將優先透過 Google Gemini 產生全新無重複的專技高考擬真題！");
+        }
+    }
+
+    function switchTab(tabId) {
+        AudioEngine.playClick();
+        
+        // Update Tab Active UI
+        const tabs = ['map', 'notebook', 'badges'];
+        tabs.forEach(t => {
+            const btn = document.getElementById(`tab-btn-${t}`);
+            const content = document.getElementById(`tab-${t}`);
+            if (t === tabId) {
+                btn.classList.add('border-cyan-500', 'text-cyan-400');
+                btn.classList.remove('border-transparent', 'text-slate-400');
+                content.classList.remove('hidden');
+                content.classList.add('block');
+            } else {
+                btn.classList.remove('border-cyan-500', 'text-cyan-400');
+                btn.classList.add('border-transparent', 'text-slate-400');
+                content.classList.add('hidden');
+                content.classList.remove('block');
             }
         });
-    </script>
+
+        if (tabId === 'notebook') {
+            renderMistakeList();
+        }
+    }
+
+    function openAuthModal() {
+        AudioEngine.playClick();
+        document.getElementById('auth-modal').classList.remove('hidden');
+    }
+
+    function closeAuthModal() {
+        document.getElementById('auth-modal').classList.add('hidden');
+    }
+
+    function anonymousLogin() {
+        AudioEngine.playClick();
+        gameState.username = "探險學員 [訪客]";
+        updateUserAreaUI();
+        closeAuthModal();
+        showCustomAlert("成功匿名登入", "您已成功登入系統，現在您的答題歷程已綁定並安全儲存！");
+    }
+
+    function mockGoogleLogin() {
+        AudioEngine.playClick();
+        // Fallback or Simulated redirection
+        gameState.username = "王小明 (OT實習生)";
+        gameState.score += 50; // Welcome reward points!
+        updateUserAreaUI();
+        saveStateToLocalStorage();
+        closeAuthModal();
+        showCustomAlert("成功結合 Google 登入", "帳號同步成功！我們為您特別致贈了 50 點的新學員啟動積分！");
+    }
+
+    function logout() {
+        AudioEngine.playClick();
+        gameState.username = "探險家 (未登入)";
+        gameState.userId = "local-user";
+        document.getElementById('user-profile-zone').innerHTML = `
+            <button onclick="openAuthModal()" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-md transition flex items-center gap-2">
+                <i class="fa-solid fa-user-astronaut"></i> 登入記錄學習歷程
+            </button>
+        `;
+        showCustomAlert("已登出", "您已登出個人帳號。");
+    }
+
+    function updateUserAreaUI() {
+        document.getElementById('user-profile-zone').innerHTML = `
+            <div class="flex items-center gap-2 bg-slate-950/60 p-1.5 pr-3 rounded-full border border-slate-800">
+                <div class="w-7 h-7 rounded-full bg-cyan-600 flex items-center justify-center text-xs text-white font-extrabold shadow">
+                    ${gameState.username.charAt(0)}
+                </div>
+                <div class="text-left">
+                    <p class="text-[11px] font-bold text-white leading-none">${gameState.username}</p>
+                    <button onclick="logout()" class="text-[9px] text-slate-500 hover:text-rose-400 mt-0.5 inline-block leading-none">登出</button>
+                </div>
+            </div>
+        `;
+    }
+
+    function selectIsland(islandKey) {
+        AudioEngine.playClick();
+        gameState.currentIsland = islandKey;
+
+        // Visual Customization inside Mode Modal depending on island
+        const bar = document.getElementById('mode-island-color-bar');
+        const iconContainer = document.getElementById('mode-island-icon-container');
+        const title = document.getElementById('mode-island-title');
+        const desc = document.getElementById('mode-island-desc');
+
+        title.innerText = subjectNames[islandKey];
+
+        // Define colors per island specification
+        let colorClass = "bg-cyan-500";
+        let iconClass = "fa-solid fa-compass";
+        let descText = "";
+
+        switch(islandKey) {
+            case "anatomy":
+                colorClass = "bg-red-500";
+                iconClass = "fa-solid fa-bone text-red-500";
+                descText = "骨骼山脈、人體剖面與手掌森林。強化解剖基礎學問與神經支配！";
+                break;
+            case "physiology":
+                colorClass = "bg-blue-500";
+                iconClass = "fa-solid fa-heart-pulse text-blue-400 animate-beat";
+                descText = "動態系統運作、呼吸起伏地面與心臟跳動火山！";
+                break;
+            case "theory":
+                colorClass = "bg-teal-500";
+                iconClass = "fa-solid fa-shapes text-teal-400";
+                descText = "MOHO、PEO、Allen 認知架構與拼圖重新組合浮島。";
+                break;
+            case "pediatric":
+                colorClass = "bg-pink-500";
+                iconClass = "fa-solid fa-child text-pink-400";
+                descText = "感統、小兒發展與糖果重力溜滑梯地形！";
+                break;
+            case "psychiatric":
+                colorClass = "bg-purple-500";
+                iconClass = "fa-solid fa-brain text-purple-400";
+                descText = "情緒、精神障礙職能治療。半明半暗情緒湖與迷霧考驗。";
+                break;
+            case "physical":
+                colorClass = "bg-orange-500";
+                iconClass = "fa-solid fa-wheelchair text-orange-400";
+                descText = "骨科與神經生理復健。義肢工坊與重建碎地，讓建築自我修復。";
+                break;
+            case "assistive":
+                colorClass = "bg-indigo-500";
+                iconClass = "fa-solid fa-robot text-indigo-400";
+                descText = "科技輔具與變形建築物，掌握無障礙環境及自理工具。";
+                break;
+            case "random":
+                colorClass = "bg-cyan-400";
+                iconClass = "fa-solid fa-circle-question text-cyan-400";
+                descText = "地圖不穩定，傳送隨機題目挑戰。跨科交叉整合練習！";
+                break;
+        }
+
+        bar.className = `absolute top-0 left-0 right-0 h-2.5 ${colorClass}`;
+        iconContainer.innerHTML = `<i class="${iconClass}"></i>`;
+        desc.innerText = descText;
+
+        // Calculate mistake questions for this island
+        const filteredMistakes = gameState.mistakeQuestions.filter(q => q.category === islandKey || islandKey === 'random');
+        document.getElementById('mode-mistake-count').innerText = `歷史答錯題強化 (${filteredMistakes.length} 題)`;
+
+        // Show Mode selection modal
+        document.getElementById('mode-modal').classList.remove('hidden');
+    }
+
+    function closeModeModal() {
+        document.getElementById('mode-modal').classList.add('hidden');
+    }
+
+    async function startPracticeMode(mode) {
+        AudioEngine.playClick();
+        closeModeModal();
+
+        // 1. Check Heart System (Consumes 1 heart)
+        if (gameState.hearts < 1) {
+            showCustomAlert("生命值不足！", "您目前的愛心已經耗盡。生命值每 30 分鐘會自動回復 1 顆，或請稍候再戰！");
+            return;
+        }
+
+        gameState.currentMode = mode;
+        gameState.quizCorrectCount = 0;
+        gameState.quizWrongCount = 0;
+        gameState.currentQuestionIndex = 0;
+
+        // Display generic loading prompt
+        document.getElementById('quiz-question-text').innerText = "正在為您開闢冒險傳送陣、加載國考學科考題中，請稍候...";
+        document.getElementById('quiz-options-container').innerHTML = '';
+        document.getElementById('quiz-modal').classList.remove('hidden');
+
+        // Consume Heart
+        gameState.hearts--;
+        if (gameState.hearts === 4) {
+            // Started countdown
+            gameState.lastHeartRegen = Date.now();
+        }
+        saveStateToLocalStorage();
+
+        // Load correct questions subset
+        let questionPool = [];
+
+        // Mistakes mode specifically loads failed questions
+        if (mode === 'mistakes') {
+            questionPool = gameState.mistakeQuestions.filter(q => q.category === gameState.currentIsland || gameState.currentIsland === 'random');
+            if (questionPool.length === 0) {
+                document.getElementById('quiz-modal').classList.add('hidden');
+                showCustomAlert("本島嶼尚無錯題紀錄！", "太優秀了，這個島嶼您目前沒有答錯的任何考題！");
+                gameState.hearts++; // Give the heart back
+                saveStateToLocalStorage();
+                return;
+            }
+        } else {
+            // Standard/Easy/Hard modes
+            if (gameState.geminiAiEnabled) {
+                // Advanced Gemini API generation
+                try {
+                    questionPool = await generateQuestionsFromGemini(gameState.currentIsland, mode);
+                } catch (e) {
+                    console.error("Gemini failed, fallback to local database", e);
+                    questionPool = getFilteredLocalQuestions(gameState.currentIsland, mode);
+                }
+            } else {
+                questionPool = getFilteredLocalQuestions(gameState.currentIsland, mode);
+            }
+        }
+
+        gameState.activeQuizSet = questionPool;
+        
+        // Render HUD Info
+        document.getElementById('quiz-header-tag').innerText = gameState.currentIsland.toUpperCase();
+        document.getElementById('quiz-header-title').innerText = `${subjectNames[gameState.currentIsland]} - ${getModeName(mode)}`;
+        
+        renderQuestion();
+    }
+
+    function getModeName(mode) {
+        switch(mode) {
+            case 'random': return '隨機整合模式';
+            case 'easy': return '簡單模式 (答對率>=50%)';
+            case 'hard': return '挑戰困難模式 (答對率<50%)';
+            case 'mistakes': return '錯題磨練課';
+            default: return '冒險挑戰';
+        }
+    }
+
+    function getFilteredLocalQuestions(category, mode) {
+        let pool = localQuestionBank[category] || [];
+        if (pool.length === 0 && category === 'random') {
+            pool = localQuestionBank.random;
+        }
+
+        if (mode === 'easy') {
+            return pool.filter(q => q.passRate >= 50);
+        } else if (mode === 'hard') {
+            return pool.filter(q => q.passRate < 50);
+        }
+        
+        // Randomize list order
+        return [...pool].sort(() => Math.random() - 0.5);
+    }
+
+    async function generateQuestionsFromGemini(subject, mode) {
+        const apiKey = ""; // Leave blank, runtime will provide.
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+        
+        const difficultyPrompt = mode === 'easy' ? "歷年國考答對率偏高（50%以上）之基本觀念題" : mode === 'hard' ? "歷年難度極高、陷阱多、答對率低於50%的挑戰題" : "歷年精華必考題";
+        const systemPrompt = `你是一位台灣職能治療專技高考補教名師。請幫我生成 5 題關於職能治療國考「${subjectNames[subject]}」領域的單選複習題。你的題目必須極度擬真且符合台灣國考規範與用語。`;
+        const userQuery = `請產生符合以下規範的 JSON 格式國考題庫（僅回傳 JSON Array，不要 Markdown 外包圍）：
+        1. 難度難易定位為：${difficultyPrompt}。
+        2. 請提供：問題、四個選項（A,B,C,D）、正確選項索引（0代表第一個、3代表最後一個）、詳盡的臨床與國考學理解析、以及一個模擬的歷年答對率（Easy大於50，Hard小於50）。
+        請嚴格遵守這個 JSON 格式輸出：
+        [
+          {
+            "id": "gemini_ot_1",
+            "question": "題目敘述...",
+            "options": ["選項A", "選項B", "選項C", "選項D"],
+            "correctIndex": 0,
+            "explanation": "詳細的考題解析...",
+            "passRate": 45
+          }
+        ]`;
+
+        const payload = {
+            contents: [{ parts: [{ text: userQuery }] }],
+            generationConfig: {
+                responseMimeType: "application/json"
+            },
+            systemInstruction: {
+                parts: [{ text: systemPrompt }]
+            }
+        };
+
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (jsonText) {
+            const parsedArray = JSON.parse(jsonText);
+            // Inject category
+            parsedArray.forEach(item => item.category = subject);
+            return parsedArray;
+        } else {
+            throw new Error("Invalid Gemini response structure");
+        }
+    }
+
+    function renderQuestion() {
+        if (gameState.currentQuestionIndex >= gameState.activeQuizSet.length) {
+            completeQuizSet();
+            return;
+        }
+
+        gameState.answeredCorrectly = null;
+        document.getElementById('quiz-explanation-panel').classList.add('hidden');
+        document.getElementById('quiz-next-btn').disabled = true;
+        document.getElementById('quiz-next-btn').className = "bg-slate-800 cursor-not-allowed text-slate-500 font-bold px-6 py-2.5 rounded-xl text-sm transition flex items-center gap-2";
+
+        const q = gameState.activeQuizSet[gameState.currentQuestionIndex];
+        
+        // Progress HUD update
+        const total = gameState.activeQuizSet.length;
+        const percent = ((gameState.currentQuestionIndex) / total) * 100;
+        document.getElementById('quiz-progress').style.width = `${percent}%`;
+        document.getElementById('quiz-step-text').innerText = `題號: ${gameState.currentQuestionIndex + 1}/${total}`;
+        document.getElementById('quiz-item-rate').innerText = `模擬國考答對率: ${q.passRate || '--'}%`;
+        document.getElementById('quiz-question-text').innerText = q.question;
+
+        // Render Option Cards
+        const optContainer = document.getElementById('quiz-options-container');
+        optContainer.innerHTML = '';
+
+        q.options.forEach((optText, index) => {
+            const button = document.createElement('button');
+            button.onclick = () => submitAnswer(index);
+            button.className = "option-card w-full text-left p-4 bg-slate-850/50 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/40 rounded-xl transition duration-200 flex items-center justify-between group";
+            button.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <span class="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-400 group-hover:bg-indigo-950 group-hover:text-indigo-400 group-hover:border-indigo-800/40 transition">
+                        ${String.fromCharCode(65 + index)}
+                    </span>
+                    <span class="text-sm font-medium text-slate-200 group-hover:text-slate-100">${optText}</span>
+                </div>
+                <div class="option-indicator text-slate-600"><i class="fa-regular fa-circle"></i></div>
+            `;
+            optContainer.appendChild(button);
+        });
+    }
+
+    function submitAnswer(selectedIndex) {
+        if (gameState.answeredCorrectly !== null) return; // Already answered
+
+        const q = gameState.activeQuizSet[gameState.currentQuestionIndex];
+        const correctIndex = q.correctIndex;
+        gameState.answeredCorrectly = (selectedIndex === correctIndex);
+
+        const options = document.getElementById('quiz-options-container').children;
+
+        // Sound effect
+        if (gameState.answeredCorrectly) {
+            AudioEngine.playCorrect();
+            gameState.quizCorrectCount++;
+            document.getElementById('quiz-correct-count').innerHTML = `<i class="fa-solid fa-circle-check"></i> 答對: ${gameState.quizCorrectCount}`;
+            gameState.score += 15; // Earn points!
+        } else {
+            AudioEngine.playWrong();
+            gameState.quizWrongCount++;
+            document.getElementById('quiz-wrong-count').innerHTML = `<i class="fa-solid fa-circle-xmark"></i> 答錯: ${gameState.quizWrongCount}`;
+            
+            // Record to mistakes notebook database
+            recordMistake(q);
+        }
+
+        // Highlight correct and incorrect options
+        for (let i = 0; i < options.length; i++) {
+            const optCard = options[i];
+            const indicator = optCard.querySelector('.option-indicator');
+            
+            if (i === correctIndex) {
+                optCard.className = "w-full text-left p-4 bg-emerald-950/40 border-2 border-emerald-500 rounded-xl transition flex items-center justify-between";
+                indicator.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-500 text-lg"></i>`;
+            } else if (i === selectedIndex) {
+                optCard.className = "w-full text-left p-4 bg-rose-950/40 border-2 border-rose-500 rounded-xl transition flex items-center justify-between";
+                indicator.innerHTML = `<i class="fa-solid fa-circle-xmark text-rose-500 text-lg"></i>`;
+            } else {
+                optCard.className = "w-full text-left p-4 bg-slate-900/40 border border-slate-850 opacity-40 rounded-xl transition flex items-center justify-between";
+                indicator.innerHTML = ``;
+            }
+        }
+
+        // Display explanation
+        document.getElementById('quiz-explanation-text').innerText = q.explanation || "本題暫無細部說明，建議查閱專門科目之國考教科書。";
+        document.getElementById('quiz-explanation-panel').classList.remove('hidden');
+
+        // Unlock "Next" Button
+        const nextBtn = document.getElementById('quiz-next-btn');
+        nextBtn.disabled = false;
+        nextBtn.className = "bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center gap-2";
+    }
+
+    function recordMistake(questionObj) {
+        // Prevent duplicate mistake entries
+        const exists = gameState.mistakeQuestions.some(q => q.id === questionObj.id);
+        if (!exists) {
+            // Include category info in mistake item
+            const itemToSave = { ...questionObj, category: questionObj.category || gameState.currentIsland };
+            gameState.mistakeQuestions.push(itemToSave);
+            saveStateToLocalStorage();
+        }
+    }
+
+    function nextQuestion() {
+        gameState.currentQuestionIndex++;
+        renderQuestion();
+    }
+
+    function completeQuizSet() {
+        AudioEngine.playFanfare();
+        document.getElementById('quiz-progress').style.width = `100%`;
+        
+        // Custom animation based on Physical island healing effect or generic completion
+        let healBonusText = "";
+        if (gameState.currentIsland === 'physical') {
+            healBonusText = "🦾 由於你在生理障礙治療島完成練習，島上的巨大化義肢訓練場已宣告修復完成！";
+        }
+
+        document.getElementById('quiz-question-text').innerHTML = `
+            <div class="text-center py-6 space-y-4">
+                <div class="w-16 h-16 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-3xl animate-bounce">
+                    <i class="fa-solid fa-flag-checkered"></i>
+                </div>
+                <h4 class="text-xl font-bold text-white">🎉 冒險測驗順利完航！</h4>
+                <p class="text-xs text-slate-300">恭喜您克服「${subjectNames[gameState.currentIsland]}」的波浪與險境，順利抵達終點！</p>
+                <div class="grid grid-cols-2 gap-4 max-w-sm mx-auto bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-left mt-4">
+                    <div>
+                        <span class="text-[10px] text-slate-500">答對題數</span>
+                        <p class="text-sm font-bold text-emerald-400">${gameState.quizCorrectCount} 題</p>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-500">獲得積分加權</span>
+                        <p class="text-sm font-bold text-amber-300">+${gameState.quizCorrectCount * 15} 積分</p>
+                    </div>
+                </div>
+                ${healBonusText ? `<p class="text-[11px] text-indigo-300 mt-2 bg-indigo-950/50 p-2 rounded border border-indigo-800/40 inline-block">${healBonusText}</p>` : ''}
+            </div>
+        `;
+
+        document.getElementById('quiz-options-container').innerHTML = '';
+        document.getElementById('quiz-explanation-panel').classList.add('hidden');
+        
+        // Change Next Button to Finish Button
+        const nextBtn = document.getElementById('quiz-next-btn');
+        nextBtn.innerHTML = `<span>回到海域</span> <i class="fa-solid fa-arrow-right-to-bracket"></i>`;
+        nextBtn.onclick = () => {
+            document.getElementById('quiz-modal').classList.add('hidden');
+            // Restore default action
+            nextBtn.onclick = () => nextQuestion();
+            saveStateToLocalStorage();
+        };
+    }
+
+    function quitQuizPrompt() {
+        if (confirm("冒險尚未完航。確定要中途棄船折返嗎？本輪消耗的生命值與累積積分將會遺失。")) {
+            document.getElementById('quiz-modal').classList.add('hidden');
+        }
+    }
+
+    function renderMistakeList() {
+        const container = document.getElementById('mistakes-container');
+        container.innerHTML = '';
+
+        if (gameState.mistakeQuestions.length === 0) {
+            container.innerHTML = `
+                <div class="bg-slate-900 border border-slate-800 p-8 text-center rounded-2xl">
+                    <i class="fa-solid fa-heart-circle-check text-4xl text-emerald-500/80 mb-3"></i>
+                    <p class="text-slate-300 font-semibold">太棒了！目前沒有任何錯題紀錄</p>
+                    <p class="text-xs text-slate-500 mt-1">至海域中挑戰題庫，若有不慎答錯的題目將會彙整於此。</p>
+                </div>
+            `;
+            return;
+        }
+
+        gameState.mistakeQuestions.forEach((q, index) => {
+            const card = document.createElement('div');
+            card.className = "bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-3 relative overflow-hidden";
+            card.innerHTML = `
+                <div class="flex justify-between items-start gap-4">
+                    <div>
+                        <span class="text-[9px] font-bold px-2 py-0.5 rounded bg-slate-850 border border-slate-700 text-slate-300 uppercase tracking-wider">
+                            ${subjectNames[q.category] || '跨科'}
+                        </span>
+                        <p class="text-sm font-semibold text-white mt-1.5 leading-relaxed">${q.question}</p>
+                    </div>
+                    <button onclick="removeMistakeByIndex(${index})" class="text-slate-500 hover:text-rose-400 text-xs transition p-1"><i class="fa-solid fa-circle-minus"></i> 移出</button>
+                </div>
+                <div class="space-y-1 pl-3 border-l-2 border-indigo-500/30">
+                    ${q.options.map((opt, oIdx) => `
+                        <div class="text-xs ${oIdx === q.correctIndex ? 'text-emerald-400 font-bold' : 'text-slate-400'}">
+                            ${String.fromCharCode(65 + oIdx)}. ${opt}
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="bg-slate-950/40 rounded-xl p-3 text-xs text-slate-400 leading-relaxed border border-slate-850/80">
+                    <strong class="text-cyan-400 flex items-center gap-1"><i class="fa-solid fa-lightbulb"></i> 解析：</strong>
+                    <p class="mt-1">${q.explanation || '暫無解析說明。'}</p>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function removeMistakeByIndex(index) {
+        AudioEngine.playClick();
+        gameState.mistakeQuestions.splice(index, 1);
+        saveStateToLocalStorage();
+        renderMistakeList();
+    }
+
+    function clearAllMistakes() {
+        AudioEngine.playClick();
+        if (gameState.mistakeQuestions.length === 0) return;
+        if (confirm("確定要清空所有的歷史錯題庫嗎？這將會清除您所有累計的錯題。")) {
+            gameState.mistakeQuestions = [];
+            saveStateToLocalStorage();
+            renderMistakeList();
+        }
+    }
+
+    function renderBadgesList() {
+        const container = document.getElementById('badges-container');
+        container.innerHTML = '';
+
+        badgeDefinitions.forEach(badge => {
+            const isUnlocked = gameState.unlockedBadges.includes(badge.id);
+            const card = document.createElement('div');
+            
+            // Layout styling depending on unlocked status
+            if (isUnlocked) {
+                card.className = "bg-slate-900 border-2 border-purple-500/60 p-4 rounded-3xl text-center space-y-3 shadow-lg relative overflow-hidden group";
+                card.innerHTML = `
+                    <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r ${badge.color}"></div>
+                    <div class="p-2 rounded-2xl bg-slate-950/80 w-20 h-20 mx-auto flex items-center justify-center border border-purple-500/30">
+                        ${badge.icon}
+                    </div>
+                    <div>
+                        <span class="text-[9px] font-bold text-purple-400 bg-purple-950 px-2 py-0.5 rounded-full border border-purple-800/40 uppercase">${badge.category}</span>
+                        <h4 class="text-sm font-bold text-white mt-1.5">${badge.name}</h4>
+                        <p class="text-[10px] text-slate-400 mt-1 leading-normal line-clamp-2" title="${badge.desc}">${badge.desc}</p>
+                    </div>
+                    <div class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 py-1 rounded-lg border border-emerald-500/20"><i class="fa-solid fa-shield-halved"></i> 已解鎖珍藏</div>
+                `;
+            } else {
+                card.className = "bg-slate-900/60 border border-slate-800/80 p-4 rounded-3xl text-center space-y-3 relative overflow-hidden opacity-60 hover:opacity-100 transition-all duration-300";
+                card.innerHTML = `
+                    <div class="absolute top-0 left-0 w-full h-1 bg-slate-800"></div>
+                    <div class="p-2 rounded-2xl bg-slate-950/80 w-20 h-20 mx-auto flex items-center justify-center filter grayscale opacity-40">
+                        ${badge.icon}
+                    </div>
+                    <div>
+                        <span class="text-[9px] font-bold text-slate-500 bg-slate-950 px-2 py-0.5 rounded-full border border-slate-800 uppercase">${badge.category}</span>
+                        <h4 class="text-sm font-bold text-slate-400 mt-1.5">${badge.name}</h4>
+                        <p class="text-[10px] text-slate-500 mt-1 leading-normal line-clamp-2">${badge.desc}</p>
+                    </div>
+                    <button onclick="exchangeBadge('${badge.id}')" class="w-full bg-slate-800 hover:bg-purple-900 text-slate-300 hover:text-white font-bold py-1.5 px-3 rounded-lg text-xs border border-slate-700 hover:border-purple-600 transition flex items-center justify-center gap-1.5">
+                        <span>100 積分兌換</span>
+                    </button>
+                `;
+            }
+            container.appendChild(card);
+        });
+    }
+
+    function exchangeBadge(badgeId) {
+        AudioEngine.playClick();
+        const badge = badgeDefinitions.find(b => b.id === badgeId);
+        
+        if (gameState.score < badge.cost) {
+            showCustomAlert("積分點數不足！", `兌換「${badge.name}」需要 ${badge.cost} 積分，您目前僅有 ${gameState.score} 積分。請多加前往各科目島嶼挑戰測驗以獲取高分！`);
+            return;
+        }
+
+        // Spend points and unlock
+        gameState.score -= badge.cost;
+        gameState.unlockedBadges.push(badgeId);
+        saveStateToLocalStorage();
+        
+        // Redraw badge showcase
+        renderBadgesList();
+        updateDashboardHUD();
+
+        AudioEngine.playFanfare();
+        showCustomAlert("🎉 成功解鎖珍貴徽章！", `恭喜您成功解鎖了「${badge.name}」主題徽章！我們已經將其歸檔至您的徽章展示架中。`);
+    }
+
+    function showCustomAlert(title, message) {
+        document.getElementById('alert-title').innerText = title;
+        document.getElementById('alert-message').innerText = message;
+        document.getElementById('custom-alert-modal').classList.remove('hidden');
+    }
+
+    function closeCustomAlert() {
+        AudioEngine.playClick();
+        document.getElementById('custom-alert-modal').classList.add('hidden');
+    }
+</script>
+
 </body>
 </html>
